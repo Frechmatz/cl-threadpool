@@ -20,6 +20,10 @@
                         :serial t
 			:components ((:file "run-jobs")
 				     (:file "threadpoolp-test")
-				     (:file "pool-stopping-worker-test"))
+				     (:file "pool-stopping-worker-test")
+				     (:file "pool-stop-twice-test")
+				     (:file "pool-stop-instantiated-test")
+				     (:file "pool-start-twice-test")
+				     (:file "pool-add-job-test"))
 			)
 	       ))
