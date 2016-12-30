@@ -3,5 +3,7 @@
   (:export :make-threadpool)
   (:export :start)
   (:export :stop)
-  (:export :add-job))
+  (:export :add-job)
+  (:export :threadpoolp))
+
 

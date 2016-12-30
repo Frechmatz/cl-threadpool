@@ -18,6 +18,7 @@
 				     ))
                (:module "test/threadpool"
                         :serial t
-			:components ((:file "run-jobs"))
+			:components ((:file "run-jobs")
+				     (:file "threadpoolp-test"))
 			)
 	       ))

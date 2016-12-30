@@ -25,6 +25,10 @@
    (cv :initform (bt:make-condition-variable))
    (cv-lock :initform (bt:make-lock "thread-pool-cv-lock"))))
 
+(defun threadpoolp (pool)
+  (typep pool 'threadpool))
+
+  
 (defun make-threadpool (name size)
   "Create a thread pool.
    name: Name of the pool.
@@ -156,6 +160,8 @@
 
 (defun start (pool)
   "Start the threadpool."
+  (if (not (threadpoolp pool))
+      (error "Not an instance of threadpool"))
   (v:info :cl-threadpool "Starting threadpool ~a..." (slot-value pool 'name))
   (dotimes (i (slot-value pool 'size))
     (let ((thread (create-poolthread
@@ -177,6 +183,8 @@
    - If the pool is in stopped state the function immediately returns."
   ;; TODO: Current thread must not be a pool worker thread
   ;; TODO: Check if pool is already stopped
+  (if (not (threadpoolp pool))
+      (error "Not an instance of threadpool"))
   (let ((s (get-threadpool-state pool)))
     (if (string= s *THREADPOOL-STATE-STOPPING*)
 	(error "Tried stopping a threadpool that is already stopping"))
@@ -199,6 +207,8 @@
    - The pool must not be in stopping state.
    - The pool must not be in stopped state."
   ;; TODO: Check if stopped
+  (if (not (threadpoolp pool))
+      (error "Not an instance of threadpool"))
   (let ((s (get-threadpool-state pool)))
     (if (string= s *THREADPOOL-STATE-STOPPING*)
 	(error "Tried adding job to stopping threadpool"))
