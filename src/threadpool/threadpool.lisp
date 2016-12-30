@@ -132,24 +132,17 @@
 			 "Process jobs until there is no more job available. 
                           Returns nil if worker thread is to be stopped"
 			 (set-thread-state thread-local-data *THREAD-STATE-PROCESSING-JOBS*) 
-			 (let ((return-value t))
-			   (loop
-			      (if (is-quit)
-				  (progn
-				    (setf return-value nil)
-				    (return)))
-			      (let ((job (get-job pool)))
-				(if job
-				    (handler-case
-					(funcall job)
-				      (condition (c)
-					(v:error
-					 :cl-threadpool
-					 "Job of worker thread ~a signalled an unhandled condition: ~a"
-					 name c))
-					))
-				    (return)))
-			 return-value)))
+			 (loop
+			    (let ((job (get-job pool)))
+			      (if job
+				  (handler-case
+				      (funcall job)
+				    (condition (c)
+				      (v:error
+				       :cl-threadpool
+				       "Job of worker thread ~a signalled an unhandled condition: ~a"
+				       name c))))
+			      (return (not (is-quit)))))))
 		(v:info :cl-threadpool "Worker thread ~a has started." name)
 		(loop
 		   (wait)

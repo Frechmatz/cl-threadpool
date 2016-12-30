@@ -19,10 +19,8 @@
 	(cl-threadpool:add-job pool (create-worker "Job 1" #'add-result))
 	(cl-threadpool:add-job pool (create-worker "Job 2" #'add-result))
 	(cl-threadpool:add-job pool (create-worker "Job 3" #'add-result))
-	;;(sleep 1)
 	(cl-threadpool:stop pool)
-	;;(v:sync)
-	(sleep 1)
+	(sleep 1) ;;(v:sync)
 	(assert-true (= 6 (length result)))))))
 
 
