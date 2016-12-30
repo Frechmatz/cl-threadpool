@@ -25,13 +25,6 @@
    (cv :initform (bt:make-condition-variable))
    (cv-lock :initform (bt:make-lock "thread-pool-cv-lock"))))
 
-(defun threadpoolp (obj)
-  "Returns t if the given object represents a thread pool."
-  (typep obj 'threadpool))
-
-(defun threadpoolp (pool)
-  (typep pool 'threadpool))
-  
 (defun get-job (pool)
   (let ((job nil))
     (bt:with-lock-held ((slot-value pool 'job-queue-lock))
@@ -80,6 +73,19 @@
     (if (funcall fn (first thread) (second thread))
 	(return))))
 
+(defun is-worker-thread (thread pool)
+  (let ((is nil))
+    (for-each-thread
+     pool
+     (lambda (cur-thread cur-thread-local-data)
+       (declare (ignore cur-thread-local-data))
+       (if (eq thread cur-thread)
+	   (progn
+	     (setf is t)
+	     t)
+	   nil)))
+    is))
+     
 (defun notify-all-idle-threads (pool)
   "Wake up all blocked threads."
   ;; Kind of a bozo implementation
@@ -158,6 +164,10 @@
 ;;
 ;;
 
+(defun threadpoolp (obj)
+  "Returns t if the given object represents a thread pool."
+  (typep obj 'threadpool))
+
 (defun make-threadpool (name size)
   "Create a thread pool.
    name: Name of the pool.
@@ -192,25 +202,27 @@
      of the pool (will create a deadlock).
    - The pool must not be in stopping state.
    - If the pool is in stopped state the function immediately returns."
-  ;; TODO: Current thread must not be a pool worker thread
   ;; TODO: Check if pool is already stopped
   (if (not (threadpoolp pool))
       (error "Not an instance of threadpool"))
+  (if (is-worker-thread (bt:current-thread) pool)
+      (error (format nil "Threadpool cannot be stopped by a worker thread: ~a" (slot-value pool 'name))))
   (let ((s (get-threadpool-state pool)))
     (if (string= s *THREADPOOL-STATE-STOPPING*)
 	(error "Tried stopping a threadpool that is already stopping"))
     (if (string= s *THREADPOOL-STATE-STOPPED*)
-	(error "Tried stopping an already stopped threadpool"))
-    (set-threadpool-state pool *THREADPOOL-STATE-STOPPING*)
-    (loop
-       (v:info :cl-threadpool "Stopping threadpool ~a..." (slot-value pool 'name))
-       (notify-all-idle-threads pool)
-       (sleep 2)
-       (if (is-all-threads-stopped pool)
-	   (return))
-       (sleep 2))
-    (set-threadpool-state pool *THREADPOOL-STATE-STOPPED*)
-    (v:info :cl-threadpool "Threadpool ~a has stopped" (slot-value pool 'name))))
+	nil
+	(progn 
+	  (set-threadpool-state pool *THREADPOOL-STATE-STOPPING*)
+	  (loop
+	     (v:info :cl-threadpool "Stopping threadpool ~a..." (slot-value pool 'name))
+	     (notify-all-idle-threads pool)
+	     (sleep 2)
+	     (if (is-all-threads-stopped pool)
+		 (return))
+	     (sleep 2))
+	  (set-threadpool-state pool *THREADPOOL-STATE-STOPPED*)
+	  (v:info :cl-threadpool "Threadpool ~a has stopped" (slot-value pool 'name))))))
 
 (defun add-job (pool job)
   "Add a job to the pool. 
