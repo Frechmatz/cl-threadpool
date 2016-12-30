@@ -25,19 +25,13 @@
    (cv :initform (bt:make-condition-variable))
    (cv-lock :initform (bt:make-lock "thread-pool-cv-lock"))))
 
+(defun threadpoolp (obj)
+  "Returns t if the given object represents a thread pool."
+  (typep obj 'threadpool))
+
 (defun threadpoolp (pool)
   (typep pool 'threadpool))
-
   
-(defun make-threadpool (name size)
-  "Create a thread pool.
-   name: Name of the pool.
-   size: Number of worker threads."
-  (let ((pool (make-instance 'threadpool)))
-    (setf (slot-value pool 'name) name)
-    (setf (slot-value pool 'size) size)
-    pool))
-
 (defun get-job (pool)
   (let ((job nil))
     (bt:with-lock-held ((slot-value pool 'job-queue-lock))
@@ -158,8 +152,24 @@
 	    :name name)))
       (list thread thread-local-data))))
 
+;;
+;;
+;; Public functions
+;;
+;;
+
+(defun make-threadpool (name size)
+  "Create a thread pool.
+   name: Name of the pool.
+   size: Number of worker threads."
+  (let ((pool (make-instance 'threadpool)))
+    (setf (slot-value pool 'name) name)
+    (setf (slot-value pool 'size) size)
+    pool))
+
 (defun start (pool)
-  "Start the threadpool."
+  "Start the threadpool.
+   pool: A threadpool instance created by make-threadpool."
   (if (not (threadpoolp pool))
       (error "Not an instance of threadpool"))
   (v:info :cl-threadpool "Starting threadpool ~a..." (slot-value pool 'name))
@@ -174,7 +184,8 @@
   (v:info :cl-threadpool "Threadpool ~a has started" (slot-value pool 'name)))
 
 (defun stop (pool)
-  "Stop the threadpool. 
+  "Stop the threadpool.
+   pool: A threadpool instance created by make-threadpool.
    - The function returns when all worker threads have been stopped.
    - All pending jobs will be executed.
    - The stopping thread must not be a worker thread 
@@ -203,6 +214,8 @@
 
 (defun add-job (pool job)
   "Add a job to the pool. 
+   pool: A threadpool instance as created by make-threadpool.
+   job: a function with zero arguments.
    - The pool must have been started.
    - The pool must not be in stopping state.
    - The pool must not be in stopped state."
