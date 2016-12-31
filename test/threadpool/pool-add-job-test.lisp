@@ -10,12 +10,12 @@
       (assert-true got-error))))
 
 (define-test pool-add-job-test-2 ()
-  "Add job to pool that is stopping"
+  "Add job to pool that has stopped"
   (let ((pool (cl-threadpool:make-threadpool "testpool" 5)))
     (cl-threadpool:start pool)
     (cl-threadpool:add-job
      pool
-     (lambda () (sleep 10)))
+     (lambda () ()))
     (cl-threadpool:stop pool)
     (let ((got-error nil))
       (handler-case 

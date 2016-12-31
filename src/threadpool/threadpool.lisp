@@ -35,12 +35,6 @@
   (bt:with-lock-held ((slot-value pool 'state-lock))
     (setf (slot-value pool 'state) state)))
 
-(defun get-threadpool-state (pool)
-  (let ((s nil))
-    (bt:with-lock-held ((slot-value pool 'state-lock))
-      (setf s (slot-value pool 'state)))
-    s))
-
 (defun is-threadpool-state (pool state)
   (let ((s nil))
     (bt:with-lock-held ((slot-value pool 'state-lock))
@@ -182,19 +176,19 @@
    pool: A threadpool instance created by make-threadpool."
   (if (not (threadpoolp pool))
       (error "Not an instance of threadpool"))
-  (let ((s (get-threadpool-state pool)))
-    (if (not (string= s *THREADPOOL-STATE-INSTANTIATED*))
-	(error (format nil "Pool can only be started once: ~a" (slot-value pool 'name)))))
-  (v:info :cl-threadpool "Starting threadpool ~a..." (slot-value pool 'name))
-  (dotimes (i (slot-value pool 'size))
-    (let ((thread (create-poolthread
-		   pool
-		   (format nil "~a-thread-~a"
-			   (slot-value pool 'name)
-			   i))))
-      (add-thread pool (first thread) (second thread))))
-  (set-threadpool-state pool *THREADPOOL-STATE-RUNNING*)
-  (v:info :cl-threadpool "Threadpool ~a has started" (slot-value pool 'name)))
+  (bt:with-lock-held ((slot-value pool 'state-lock))
+    (let ((s (slot-value pool 'state)))
+      (if (not (string= s *THREADPOOL-STATE-INSTANTIATED*))
+	  (error (format nil "Pool can only be started once: ~a" (slot-value pool 'name)))))
+    (v:info :cl-threadpool "Starting threadpool ~a..." (slot-value pool 'name))
+    (dotimes (i (slot-value pool 'size))
+      (let ((thread
+	     (create-poolthread
+	      pool
+	      (format nil "~a-thread-~a" (slot-value pool 'name) i))))
+	(add-thread pool (first thread) (second thread))))
+    (setf (slot-value pool 'state) *THREADPOOL-STATE-RUNNING*)
+    (v:info :cl-threadpool "Threadpool ~a has been started" (slot-value pool 'name))))
 
 (defun stop (pool)
   "Stop the threadpool.
@@ -209,24 +203,28 @@
       (error "Not an instance of threadpool"))
   (if (is-worker-thread (bt:current-thread) pool)
       (error (format nil "Threadpool cannot be stopped by a worker thread: ~a" (slot-value pool 'name))))
-  (let ((s (get-threadpool-state pool)))
-    (if (string= s *THREADPOOL-STATE-STOPPING*)
-	(error "Tried stopping a threadpool that is already stopping: ~a" (slot-value pool 'name)))
-    (if (string= s *THREADPOOL-STATE-STOPPED*)
-	(error "Tried stopping an already stopped threadpool: ~a" (slot-value pool 'name)))
-    (if (string= s *THREADPOOL-STATE-INSTANTIATED*)
-	(set-threadpool-state pool *THREADPOOL-STATE-STOPPED*)
-	(progn 
-	  (set-threadpool-state pool *THREADPOOL-STATE-STOPPING*)
-	  (loop
-	     (v:info :cl-threadpool "Stopping threadpool ~a..." (slot-value pool 'name))
-	     (notify-all-idle-threads pool)
-	     (sleep 2)
-	     (if (is-all-threads-stopped pool)
-		 (return))
-	     (sleep 2))
-	  (set-threadpool-state pool *THREADPOOL-STATE-STOPPED*)
-	  (v:info :cl-threadpool "Threadpool ~a has stopped" (slot-value pool 'name))))))
+  (let ((enter-loop nil))
+    (bt:with-lock-held ((slot-value pool 'state-lock))
+      (let ((s (slot-value pool 'state)))
+	(if (string= s *THREADPOOL-STATE-STOPPING*)
+	    (error "Tried stopping a threadpool that is already stopping: ~a" (slot-value pool 'name)))
+	(if (string= s *THREADPOOL-STATE-STOPPED*)
+	    (error "Tried stopping an already stopped threadpool: ~a" (slot-value pool 'name)))
+	(if (string= s *THREADPOOL-STATE-INSTANTIATED*)
+	    (setf (slot-value pool 'state) *THREADPOOL-STATE-STOPPED*)
+	    (progn 
+	      (setf (slot-value pool 'state) *THREADPOOL-STATE-STOPPING*)
+	      (setf enter-loop t))
+	    )))
+    (if enter-loop
+	(loop
+	   (v:info :cl-threadpool "Stopping threadpool ~a..." (slot-value pool 'name))
+	   (notify-all-idle-threads pool)
+	   (sleep 1)
+	   (if (is-all-threads-stopped pool)
+	       (return))))
+    (set-threadpool-state pool *THREADPOOL-STATE-STOPPED*)
+    (v:info :cl-threadpool "Threadpool ~a has stopped" (slot-value pool 'name))))
 
 (defun add-job (pool job)
   "Add a job to the pool. 
@@ -235,17 +233,19 @@
    - The pool must have been started.
    - The pool must not be in stopping state.
    - The pool must not be in stopped state."
-  ;; TODO: Check if stopped
   (if (not (threadpoolp pool))
       (error "Not an instance of threadpool"))
-  (let ((s (get-threadpool-state pool)))
-    (if (string= s *THREADPOOL-STATE-STOPPING*)
-	(error "Tried adding job to stopping threadpool"))
-    (if (string= s *THREADPOOL-STATE-STOPPED*)
-	(error "Tried adding job to stopped threadpool"))
-    (if (string= s *THREADPOOL-STATE-INSTANTIATED*)
-	(error "Tried adding job to threadpool that hasn't been started"))
-    (bt:with-lock-held ((slot-value pool 'job-queue-lock))
-      (queues:qpush (slot-value pool 'job-queue) job)
-      (bt:condition-notify (slot-value pool 'cv)))))
+  (bt:with-lock-held ((slot-value pool 'state-lock))
+    (let ((s (slot-value pool 'state)))
+      (if (string= s *THREADPOOL-STATE-STOPPING*)
+	  (error "Tried adding job to stopping threadpool"))
+      (if (string= s *THREADPOOL-STATE-STOPPED*)
+	  (error "Tried adding job to stopped threadpool"))
+      (if (string= s *THREADPOOL-STATE-INSTANTIATED*)
+	  (error "Tried adding job to threadpool that hasn't been started"))
+      (bt:with-lock-held ((slot-value pool 'job-queue-lock))
+	(queues:qpush (slot-value pool 'job-queue) job)
+	(v:info :cl-threadpool "Added job to queue")
+	(bt:condition-notify (slot-value pool 'cv))))))
+
 

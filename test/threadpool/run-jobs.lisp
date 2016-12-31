@@ -4,7 +4,7 @@
   (lambda ()
     ;;(v:info :cl-threadpool (format nil "********** ~a: Doing something ***********" name))
     (funcall fn name)
-    (sleep 10)
+    (sleep 3)
     ;;(v:info :cl-threadpool (format nil "********** ~a: Doing something ***********" name))
     (funcall fn name)
     ))
