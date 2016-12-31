@@ -139,8 +139,8 @@
 				      (v:error
 				       :cl-threadpool
 				       "Job of worker thread ~a signalled an unhandled condition: ~a"
-				       name c))))
-			      (return (not (is-quit)))))))
+				       name c)))
+				  (return (not (is-quit))))))))
 		(v:info :cl-threadpool "Worker thread ~a has started." name)
 		(loop
 		   (wait)
