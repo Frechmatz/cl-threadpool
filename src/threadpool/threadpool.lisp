@@ -17,8 +17,9 @@
 (defclass threadpool ()
   ((job-queue :initform (queues:make-queue :simple-queue))
    (job-queue-lock :initform (bt:make-lock "thread-pool-queue-lock"))
+   (max-queue-size :initform nil)
    (threads :initform '())
-   (size :initform 5)
+   (size :initform nil)
    (name :initform "Threadpool")
    (state :initform *THREADPOOL-STATE-INSTANTIATED*)
    (state-lock :initform (bt:make-lock "thread-pool-state-lock"))
@@ -158,18 +159,25 @@
 ;;
 ;;
 
-(defun threadpoolp (obj)
-  "Returns t if the given object represents a thread pool."
-  (typep obj 'threadpool))
 
-(defun make-threadpool (name size)
+(defun make-threadpool (name size &key (max-queue-size nil))
   "Create a thread pool.
    name: Name of the pool.
-   size: Number of worker threads."
+   size: Number of worker threads.
+   max-queue-size: The maximum number of pending jobs"
+  ;; todo: Input validation
   (let ((pool (make-instance 'threadpool)))
     (setf (slot-value pool 'name) name)
     (setf (slot-value pool 'size) size)
+    (setf (slot-value pool 'max-queue-size)
+	  (if max-queue-size
+	      max-queue-size
+	      (* size 2)))
     pool))
+
+(defun threadpoolp (obj)
+  "Returns t if the given object represents a thread pool."
+  (typep obj 'threadpool))
 
 (defun start (pool)
   "Start the threadpool.
@@ -244,6 +252,8 @@
       (if (string= s *THREADPOOL-STATE-INSTANTIATED*)
 	  (error "Tried adding job to threadpool that hasn't been started"))
       (bt:with-lock-held ((slot-value pool 'job-queue-lock))
+	(if (> (queues:qsize (slot-value pool 'job-queue)) (slot-value pool 'max-queue-size))
+	    (error "Maximum job queue length reached: ~a" (slot-value pool 'name)))
 	(queues:qpush (slot-value pool 'job-queue) job)
 	(v:info :cl-threadpool "Added job to queue")
 	(bt:condition-notify (slot-value pool 'cv))))))
