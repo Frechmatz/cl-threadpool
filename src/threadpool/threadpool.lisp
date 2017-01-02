@@ -6,7 +6,6 @@
 
 (defclass threadpool ()
   ((job-queue :initform (queues:make-queue :simple-queue))
-   (job-queue-lock :initform (bt:make-lock "thread-pool-queue-lock"))
    (max-queue-size :initform nil)
    (threads :initform '())
    (size :initform nil)
@@ -21,7 +20,7 @@
 
 (defun get-job (pool)
   (let ((job nil))
-    (bt:with-lock-held ((slot-value pool 'job-queue-lock))
+    (bt:with-lock-held ((slot-value pool 'state-lock))
       (setf job (queues:qpop (slot-value pool 'job-queue))))
   job))
 
@@ -96,7 +95,7 @@
 	   nil)))
     stopped))
 
-
+;; The thread MUST NOT change the pool state
 (defun create-poolthread (pool name)
   (let ((thread-local-data (make-instance 'thread-data)))
     (let ((thread
@@ -261,11 +260,11 @@
 	  (error "Cannot add job to stopping thread pool"))
       (if (eq s :stopped)
 	  (error "Cannot add job to stopped thread pool"))
-      (bt:with-lock-held ((slot-value pool 'job-queue-lock))
 	(if (> (queues:qsize (slot-value pool 'job-queue)) (slot-value pool 'max-queue-size))
 	    (error "Maximum job queue length reached: ~a" (slot-value pool 'name)))
 	(queues:qpush (slot-value pool 'job-queue) job)
 	(v:info :cl-threadpool "Added job to queue")
-	(bt:condition-notify (slot-value pool 'cv))))))
+	(bt:condition-notify (slot-value pool 'cv))
+      )))
 
 
