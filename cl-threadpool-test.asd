@@ -2,6 +2,7 @@
   :serial t
   :description "Tests for cl-threadpool"
   :long-description "Tests for cl-threadpool"
+  :licence "Public Domain / 0-clause MIT"
   :depends-on (
 	       :lisp-unit
 	       :bordeaux-threads
