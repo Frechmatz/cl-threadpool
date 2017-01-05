@@ -6,10 +6,15 @@ Installation
 
 Download cl-threadpool and add it to the asdf-system path
 
+Dependencies:
+* bordeaux-threads
+* queues
+* verbose
+
 Example
 -------
 
-Load the cl-threadpool system
+Load cl-threadpool
 
 ```lisp
 (asdf:load-system "cl-threadpool")
@@ -21,7 +26,7 @@ Create a thread pool with 5 worker threads
 (defparameter *threadpool* (cl-threadpool:make-threadpool "My Thread Pool" 5))
 ```
 
-Start the thread pool
+Start the pool
 
 ```lisp
 (cl-threadpool:start *threadpool*)
@@ -35,7 +40,7 @@ Add a job
    (lambda () (sleep 5)))
 ```
 
-Stop the thread pool
+Stop the pool
 
 ```lisp
 (cl-threadpool:stop *threadpool*)
