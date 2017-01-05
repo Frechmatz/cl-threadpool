@@ -1,5 +1,5 @@
 # cl-threadpool
-A Common Lisp implementation of a thread pool
+A Common Lisp Thread-Pool implementation
 
 Installation
 ------------
