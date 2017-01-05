@@ -180,8 +180,8 @@
       (if s
 	  (error (format
 		  nil
-		  "Thread pool can only be started once: ~a"
-		  (slot-value pool 'name)))))
+		  "Thread pool can only be started once: ~a (~a)"
+		  (slot-value pool 'name) s))))
     (v:info :cl-threadpool "Starting thread pool ~a..." (slot-value pool 'name))
     (dotimes (i (slot-value pool 'size))
       (let ((thread
