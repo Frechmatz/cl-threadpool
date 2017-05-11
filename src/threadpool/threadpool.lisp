@@ -153,9 +153,10 @@
 
 (defun make-threadpool (name size &key (max-queue-size nil))
   "Create a thread pool.
-   name: Name of the pool.
-   size: Number of worker threads.
-   max-queue-size: The maximum number of pending jobs"
+
+ _name_ -- Name of the pool.   
+ _size_ -- Number of worker threads.   
+ _max-queue-size_ -- The maximum number of pending jobs"
   ;; todo: Input validation
   (let ((pool (make-instance 'threadpool)))
     (setf (slot-value pool 'name) name)
@@ -172,7 +173,8 @@
 
 (defun start (pool)
   "Start the thread pool.
-   pool: A thread pool instance created by make-threadpool."
+
+ _pool_ -- A thread pool instance created by make-threadpool."
   (if (not (threadpoolp pool))
       (error "Not an instance of threadpool"))
   (bt:with-lock-held ((slot-value pool 'state-lock))
@@ -199,13 +201,15 @@
 
 (defun stop (pool)
   "Stop the thread pool.
-   pool: A threadpool instance created by make-threadpool.
-   - The function returns when all worker threads have stopped.
-   - All pending jobs will be executed.
-   - The stopping thread must not be a worker thread of the pool (to avoid deadlock).
-   - The pool must not be in stopping state.
-   - The pool must not be in stopped state.
-   - If the pool has not been started yet, the pool state is set to stopped."
+
+ _pool_ -- A threadpool instance created by make-threadpool.
+
+ * The function returns when all worker threads have stopped.
+ * All pending jobs will be executed.
+ * The stopping thread must not be a worker thread of the pool (to avoid deadlock).
+ * The pool must not be in stopping state.
+ * The pool must not be in stopped state.
+ * If the pool has not been started yet, the pool state is set to stopped."
   (if (not (threadpoolp pool))
       (error "Not an instance of threadpool"))
   (if (is-worker-thread (bt:current-thread) pool)
@@ -245,11 +249,13 @@
 
 (defun add-job (pool job)
   "Add a job to the pool. 
-   pool: A threadpool instance as created by make-threadpool.
-   job: a function with zero arguments.
-   - The pool must have been started.
-   - The pool must not be in stopping state.
-   - The pool must not be in stopped state."
+
+ _pool_ -- A threadpool instance as created by make-threadpool.   
+ _job_ -- A function with zero arguments.
+ 
+* The pool must have been started.
+* The pool must not be in stopping state.
+* The pool must not be in stopped state."
   (if (not (threadpoolp pool))
       (error "Not an instance of threadpool"))
   (bt:with-lock-held ((slot-value pool 'state-lock))
