@@ -113,10 +113,8 @@
 			 (bt:release-lock (slot-value pool 'cv-lock))
 			 (v:trace :cl-threadpool "Worker thread ~a has been woken up" name))
 		       (is-quit ()
-			 (let ((s nil))
-			   (bt:with-lock-held ((slot-value pool 'state-lock))
-			     (setf s (slot-value pool 'state)))
-			   (eq s :stopping)))
+			 (with-pool-state-lock-held pool state
+			   (eq state :stopping)))
 		       (process ()
 			 "Process jobs until there is no more job available. 
                           Returns nil if worker thread is to be stopped"
