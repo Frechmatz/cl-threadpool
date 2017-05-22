@@ -8,7 +8,7 @@
     (cl-threadpool:add-job
      pool
      (lambda ()
-       (sleep 1) (error "Nope")))
+       (sleep 1) (error "<Thread Error>")))
     (cl-threadpool:add-job
      pool
      (lambda ()

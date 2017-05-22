@@ -4,6 +4,8 @@
   (:export :start)
   (:export :stop)
   (:export :add-job)
-  (:export :threadpoolp))
+  (:export :threadpoolp)
+  (:export :worker-thread-p)
+  )
 
 

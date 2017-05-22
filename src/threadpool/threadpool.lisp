@@ -29,13 +29,13 @@
      (let ((,state (slot-value pool 'state)))
        ,@body)))
 
-(defmacro on-pool-state-signal-error (pool s value error-message)
-  `(if (eq ,s ,value)
+(defmacro signal-pool-error-if (predicate pool error-message)
+  `(if (funcall ,predicate)
        (error (format nil "~a: ~a" ,error-message (slot-value ,pool 'name)))))
 
-(defmacro on-not-pool-state-signal-error (pool s value error-message)
-  `(if (not (eq ,s ,value))
-       (error (format nil "~a: ~a" ,error-message (slot-value ,pool 'name)))))
+(defun threadpoolp (obj)
+  "Returns t if the given object represents a thread pool."
+  (typep obj 'threadpool))
 
 
 
@@ -65,49 +65,32 @@
    (list thread thread-local-data)
    (slot-value pool 'threads)))
 
-(defun for-each-thread (pool fn)
-  "Calls given function for each thread with thread and thread data. 
-  Aborts loop when fn returns t"
-  (dolist (thread (slot-value pool 'threads))
-    (if (funcall fn (first thread) (second thread))
-	(return))))
+(defmacro with-pool-threads (pool thread thread-local-data &body body)
+  "Iterate through all threads"
+  (let ((cur-thread (gensym)))
+    `(dolist (,cur-thread (slot-value ,pool 'threads))
+       (let ((,thread (first ,cur-thread)) (,thread-local-data (second ,cur-thread)))
+	 ,@body))))
 
-(defun is-worker-thread (thread pool)
-  (let ((is nil))
-    (for-each-thread
-     pool
-     (lambda (cur-thread cur-thread-local-data)
-       (declare (ignore cur-thread-local-data))
-       (if (eq thread cur-thread)
-	   (progn
-	     (setf is t)
-	     t)
-	   nil)))
-    is))
-     
+(defun worker-thread-p (pool)
+  (if (not (threadpoolp pool))
+      nil
+      (let ((thread (bt:current-thread)))
+	(find-if (lambda (thread-info) (eq thread (first thread-info))) (slot-value pool 'threads)))))
+
 (defun notify-all-idle-threads (pool)
   "Wake up all blocked threads."
-  (for-each-thread
-   pool
-   (lambda (thread thread-local-data)
-     (declare (ignore thread))
-     (if (is-thread-state thread-local-data :idle)
+  (with-pool-threads pool thread thread-local-data
+    (declare (ignore thread))
+    (if (is-thread-state thread-local-data :idle)
 	 (bt:condition-notify (slot-value pool 'cv)))
-     nil)))
+    nil))
 
 (defun is-all-threads-stopped (pool)
-  "Returns t if all threads are stopped." 
-  (let ((stopped t))
-    (for-each-thread
-     pool
-     (lambda (thread thread-local-data)
-       (declare (ignore thread))
-       (if (not (is-thread-state thread-local-data :stopped))
-	   (progn
-	     (setf stopped nil)
-	     t) ;; Abort loop
-	   nil)))
-    stopped))
+  "Returns t if all threads are stopped."
+  (not (find-if
+	(lambda (thread-info) (not (is-thread-state (second thread-info) :stopped)))
+	(slot-value pool 'threads))))
 
 ;; Create a worker thread.
 ;; The thread must not change the pool state
@@ -181,17 +164,13 @@
 	      (* size 2)))
     pool))
 
-(defun threadpoolp (obj)
-  "Returns t if the given object represents a thread pool."
-  (typep obj 'threadpool))
-
 (defun start (pool)
   "Start the thread pool.
 pool -- A thread pool instance created by make-threadpool."
   (if (not (threadpoolp pool))
       (error "Not an instance of threadpool"))
   (with-pool-state-lock-held pool s
-    (on-not-pool-state-signal-error pool s nil "Thread pool can only be started once")
+    (signal-pool-error-if (lambda() s) pool "Thread pool can only be started once")
     (v:info :cl-threadpool "Starting thread pool ~a..." (slot-value pool 'name))
     (dotimes (i (slot-value pool 'size))
       (let ((thread
@@ -218,15 +197,15 @@ pool -- A thread pool instance created by make-threadpool."
  * If the pool has not been started yet, the pool state is set to stopped."
   (if (not (threadpoolp pool))
       (error "Not an instance of threadpool"))
-  (if (is-worker-thread (bt:current-thread) pool)
+  (if (worker-thread-p pool)
       (error (format
 	      nil
 	      "Thread pool cannot be stopped by a worker thread: ~a"
 	      (slot-value pool 'name))))
   (let ((enter-loop nil))
     (with-pool-state-lock-held pool s
-      (on-pool-state-signal-error pool s :stopping "Tried stopping a thread pool that is already stopping")
-      (on-pool-state-signal-error pool s :stopped "Tried stopping an already stopped thread pool")
+      (signal-pool-error-if (lambda () (eq s :stopping)) pool "Tried stopping a thread pool that is already stopping")
+      (signal-pool-error-if (lambda () (eq s :stopped)) pool "Tried stopping an already stopped thread pool")
       (if (not s)
 	  (setf (slot-value pool 'state) :stopped)
 	  (progn 
@@ -254,9 +233,9 @@ pool -- A thread pool instance created by make-threadpool."
   (if (not (threadpoolp pool))
       (error "Not an instance of threadpool"))
   (with-pool-state-lock-held pool s
-    (on-pool-state-signal-error pool s nil "Cannot add job to thread pool that hasn't been started")
-    (on-pool-state-signal-error pool s :stopping "Cannot add job to stopping thread pool")
-    (on-pool-state-signal-error pool s :stopped "Cannot add job to stopped thread pool")
+    (signal-pool-error-if (lambda () (eq s nil)) pool "Cannot add job to thread pool that hasn't been started")
+    (signal-pool-error-if (lambda () (eq s :stopping)) pool "Cannot add job to stopping thread pool")
+    (signal-pool-error-if (lambda () (eq s :stopped)) pool "Cannot add job to stopped thread pool")
     (if (> (queues:qsize (slot-value pool 'job-queue)) (slot-value pool 'max-queue-size))
 	(error "Maximum job queue length reached: ~a" (slot-value pool 'name)))
     (queues:qpush (slot-value pool 'job-queue) job)
