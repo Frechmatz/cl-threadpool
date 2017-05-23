@@ -1,13 +1,69 @@
 ;;
 ;; A Thread Pool
 ;;
+;; Todo: rename threadsv2
+;;
 
 (in-package :cl-threadpool)
+
+;;
+;; Thread list
+;;
+
+;; Todo: Set name of pool in constructor
+(defclass thread-list ()
+  ((lock :initform (bt:make-lock "thread-list-lock"))
+   (threads :initform '())))
+
+(defun thread-list-add-slot (thread-list)
+  ;;(declare (optimize (debug 3) (speed 0) (space 0)))
+  ;;(break)
+  (bt:with-lock-held ((slot-value thread-list 'lock))
+    (let ((name (format nil "cl-threadpool-worker-thread-~a" (gensym))))
+      (push (list name :pending) (slot-value thread-list 'threads))
+      name)))
+
+(defun thread-list-attach-thread-to-slot (thread-list slot-name thread)
+  ;;(declare (optimize (debug 3) (speed 0) (space 0)))
+  ;;(break)
+  (bt:with-lock-held ((slot-value thread-list 'lock))
+    (let ((slot (assoc slot-name (slot-value thread-list 'threads) :test #'string=)))
+      (if (not slot)
+	  (error (format nil "Slot not found for name ~a" slot-name))
+	  (setf (second slot) thread)))))
+
+(defun thread-list-remove-slot (thread-list slot-name)
+  (bt:with-lock-held ((slot-value thread-list 'lock))
+    (setf (slot-value thread-list 'threads)
+	  (remove-if (lambda (thread) (string= slot-name (first thread))) (slot-value thread-list 'threads)))))
+
+(defun thread-list-length (thread-list)
+  (bt:with-lock-held ((slot-value thread-list 'lock))
+    (length (slot-value thread-list 'threads))))
+
+(defun thread-list-worker-thread-p (thread-list thread)
+  ;;(declare (optimize (debug 3) (speed 0) (space 0)))
+  ;;(break)
+  (bt:with-lock-held ((slot-value thread-list 'lock))
+    (find-if (lambda (cur-thread) (eq thread (second cur-thread))) (slot-value thread-list 'threads))))
+
+(defmacro thread-list-with-pool-threads (thread-list thread  &body body)
+  "Iterate through all non-pending threads"
+  (let ((cur-thread (gensym)))
+    `(bt:with-lock-held ((slot-value ,thread-list 'lock))
+       (dolist (,cur-thread (slot-value ,thread-list 'threads))
+	 (if (not (eq :pending (second ,cur-thread)))
+	     (let ((,thread (second ,cur-thread)))
+	       ,@body))))))
+
+;;
+;; Thread pool
+;;
 
 (defclass threadpool ()
   ((job-queue :initform (queues:make-queue :simple-queue))
    (max-queue-size :initform nil)
-   (threads :initform '())
+   (threadsv2 :initform (make-instance 'thread-list))
    (size :initform nil)
    (name :initform "Threadpool")
    (state :initform nil
@@ -37,109 +93,71 @@
   "Returns t if the given object represents a thread pool."
   (typep obj 'threadpool))
 
-
-
-(defclass thread-data ()
-  ;; Thread state MUST NOT be changed by the thread pool.
-  ((state :initform nil
-	  :documentation
-	  "State of the worker thread. One of
-           nil, :IDLE, :PROCESSING-JOBS, :STOPPED")
-   ;; Thread state is monitored by the thread pool.
-   ;; Thats why we need a lock.
-   (state-lock :initform (bt:make-lock "thread-data-state-lock"))))
-
-(defun set-thread-state (thread state)
-  (bt:with-lock-held ((slot-value thread 'state-lock))
-    (setf (slot-value thread 'state) state)))
-
-(defun is-thread-state (thread state)
-  (let ((s nil))
-    (bt:with-lock-held ((slot-value thread 'state-lock))
-      (setf s (eq state (slot-value thread 'state))))
-    s))
-
-;; Add a thread instance to the thread pool
-(defun add-thread (pool thread thread-local-data)
-  (push
-   (list thread thread-local-data)
-   (slot-value pool 'threads)))
-
-(defmacro with-pool-threads (pool thread thread-local-data &body body)
-  "Iterate through all threads"
-  (let ((cur-thread (gensym)))
-    `(dolist (,cur-thread (slot-value ,pool 'threads))
-       (let ((,thread (first ,cur-thread)) (,thread-local-data (second ,cur-thread)))
-	 ,@body))))
-
 (defun worker-thread-p (pool)
   (if (not (threadpoolp pool))
       nil
-      (let ((thread (bt:current-thread)))
-	(find-if (lambda (thread-info) (eq thread (first thread-info))) (slot-value pool 'threads)))))
+      (thread-list-worker-thread-p (slot-value pool 'threadsv2) (bt:current-thread))))
 
+;; Todo: do-times (thread-count)) as the algorithm is stupid enough
 (defun notify-all-idle-threads (pool)
   "Wake up all blocked threads."
-  (with-pool-threads pool thread thread-local-data
+  (thread-list-with-pool-threads (slot-value pool 'threadsv2) thread
     (declare (ignore thread))
-    (if (is-thread-state thread-local-data :idle)
-	 (bt:condition-notify (slot-value pool 'cv)))
-    nil))
+    (bt:condition-notify (slot-value pool 'cv)))
+    nil)
 
-(defun is-all-threads-stopped (pool)
+(defun is-all-threads-stopped (pool) 
   "Returns t if all threads are stopped."
-  (not (find-if
-	(lambda (thread-info) (not (is-thread-state (second thread-info) :stopped)))
-	(slot-value pool 'threads))))
+  (eq 0 (thread-list-length (slot-value pool 'threadsv2))))
 
-;; Create a worker thread.
-;; The thread must not change the pool state
-(defun make-worker-thread (pool name)
-  (let ((thread-local-data (make-instance 'thread-data)))
-    (let ((thread
-	   (bt:make-thread
-	    (lambda ()
-	      (labels (
-		       (wait ()
-			 (v:trace :cl-threadpool "Worker thread ~a is going to sleep" name)
-			 (set-thread-state thread-local-data :idle) 
-			 ;; Lock
-			 (bt:acquire-lock (slot-value pool 'cv-lock) t)
-			 ;; Wait
-			 (bt:condition-wait
-			  (slot-value pool 'cv)
-			  (slot-value pool 'cv-lock))
-			 ;; Unlock (we do not need the lock for further processing)
-			 (bt:release-lock (slot-value pool 'cv-lock))
-			 (v:trace :cl-threadpool "Worker thread ~a has been woken up" name))
-		       (is-quit ()
-			 (with-pool-state-lock-held pool state
-			   (eq state :stopping)))
-		       (process ()
-			 "Process jobs until there is no more job available. 
+(defun make-worker-thread (pool)
+  "Adds a worker thread to the pool. The function has no useful return value."
+  ;; Register the thread.
+  (let ((thread-name (thread-list-add-slot (slot-value pool 'threadsv2))))
+    (bt:make-thread
+     (lambda ()
+       ;; Attach thread instance to previously registered thread
+       (thread-list-attach-thread-to-slot
+	(slot-value pool 'threadsv2)
+	thread-name
+	(bt:current-thread))
+       (labels ((wait ()
+		  (v:trace :cl-threadpool "Worker thread ~a is going to sleep" thread-name)
+		  ;; Lock
+		  (bt:acquire-lock (slot-value pool 'cv-lock) t)
+		  ;; Wait
+		  (bt:condition-wait
+		   (slot-value pool 'cv)
+		   (slot-value pool 'cv-lock))
+		  ;; Unlock (we do not need the lock for further processing)
+		  (bt:release-lock (slot-value pool 'cv-lock))
+		  (v:trace :cl-threadpool "Worker thread ~a has been woken up" thread-name))
+		(is-quit ()
+		  (with-pool-state-lock-held pool state
+		    (eq state :stopping)))
+		(process ()
+		  "Process jobs until there is no more job available. 
                           Returns nil if worker thread is to be stopped"
-			 (set-thread-state thread-local-data :processing-jobs) 
-			 (loop
-			    (let ((job (get-job pool)))
-			      (if job
-				  (handler-case
-				      (funcall job)
-				    (condition (c)
-				      (v:error
-				       :cl-threadpool
-				       "Job of worker thread ~a signalled a condition: ~a"
-				       name c)))
-				  (return (not (is-quit))))))))
-		(v:info :cl-threadpool "Worker thread ~a has started." name)
-		(loop
-		   (wait)
-		   (if (not (process))
-		       (return)))
-		(set-thread-state thread-local-data :stopped) 
-		(v:info :cl-threadpool "Worker thread ~a has stopped." name)
-		))
-	    :name name)))
-      (list thread thread-local-data))))
+		  (loop
+		     (let ((job (get-job pool)))
+		       (if job
+			   (handler-case
+			       (funcall job)
+			     (condition (c)
+			       (v:error
+				:cl-threadpool
+				"Job of worker thread ~a signalled a condition: ~a"
+				thread-name c)))
+			   (return (not (is-quit))))))))
+	 (v:info :cl-threadpool "Worker thread ~a has started." thread-name)
+	 (loop
+	    (wait)
+	    (if (not (process))
+		(return)))
+	 (thread-list-remove-slot (slot-value pool 'threadsv2) thread-name)
+	 (v:info :cl-threadpool "Worker thread ~a has stopped." thread-name)))
+     :name thread-name)
+    nil))
 
 ;;
 ;;
@@ -149,10 +167,9 @@
 
 (defun make-threadpool (name size &key (max-queue-size nil))
   "Create a thread pool.
- name -- Name of the pool.
- size -- Number of worker threads.
- max-queue-size -- The maximum number of pending jobs"
-  ;; todo: Input validation
+name -- Name of the pool.
+size -- Number of worker threads.
+max-queue-size -- The maximum number of pending jobs"
   (let ((pool (make-instance 'threadpool)))
     (setf (slot-value pool 'name) name)
     (setf (slot-value pool 'size) size)
@@ -171,14 +188,7 @@ pool -- A thread pool instance created by make-threadpool."
     (signal-pool-error-if (lambda() s) pool "Thread pool can only be started once")
     (v:info :cl-threadpool "Starting thread pool ~a..." (slot-value pool 'name))
     (dotimes (i (slot-value pool 'size))
-      (let ((thread
-	     (make-worker-thread
-	      pool
-	      (format
-	       nil
-	       "~a-thread-~a"
-	       (slot-value pool 'name) i))))
-	(add-thread pool (first thread) (second thread))))
+      (make-worker-thread pool))
     (setf (slot-value pool 'state) :running)
     (v:info :cl-threadpool
 	    "Thread pool ~a has been started"
