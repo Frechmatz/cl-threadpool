@@ -10,16 +10,19 @@
 ;; Thread list
 ;;
 
-;; Todo: Set name of pool in constructor
 (defclass thread-list ()
   ((lock :initform (bt:make-lock "thread-list-lock"))
-   (threads :initform '())))
+   (threads :initform '())
+   (thread-name-prefix :initform "thread-list")))
+
+(defmethod initialize-instance :after ((tlist thread-list) &key thread-name-prefix)
+  (setf (slot-value tlist 'thread-name-prefix) thread-name-prefix))
 
 (defun thread-list-add-slot (thread-list)
   ;;(declare (optimize (debug 3) (speed 0) (space 0)))
   ;;(break)
   (bt:with-lock-held ((slot-value thread-list 'lock))
-    (let ((name (format nil "cl-threadpool-worker-thread-~a" (gensym))))
+    (let ((name (format nil "~a-~a" (slot-value thread-list 'thread-name-prefix) (gensym))))
       (push (list name :pending) (slot-value thread-list 'threads))
       name)))
 
@@ -63,7 +66,7 @@
 (defclass threadpool ()
   ((job-queue :initform (queues:make-queue :simple-queue))
    (max-queue-size :initform nil)
-   (threadsv2 :initform (make-instance 'thread-list))
+   (threadsv2 :initform (make-instance 'thread-list :thread-name-prefix "Threadpool"))
    (size :initform nil)
    (name :initform "Threadpool")
    (state :initform nil
@@ -73,6 +76,10 @@
    (state-lock :initform (bt:make-lock "thread-pool-state-lock"))
    (cv :initform (bt:make-condition-variable))
    (cv-lock :initform (bt:make-lock "thread-pool-cv-lock"))))
+
+(defmethod initialize-instance :after ((pool threadpool) &key name)
+  (setf (slot-value pool 'name) name)
+  (setf (slot-value (slot-value pool 'threadsv2) 'thread-name-prefix) name))
 
 (defun get-job (pool)
   (let ((job nil))
@@ -170,7 +177,7 @@
 name -- Name of the pool.
 size -- Number of worker threads.
 max-queue-size -- The maximum number of pending jobs"
-  (let ((pool (make-instance 'threadpool)))
+  (let ((pool (make-instance 'threadpool :name name)))
     (setf (slot-value pool 'name) name)
     (setf (slot-value pool 'size) size)
     (setf (slot-value pool 'max-queue-size)
