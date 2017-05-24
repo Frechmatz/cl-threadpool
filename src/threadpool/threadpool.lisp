@@ -10,51 +10,51 @@
 ;; Thread list
 ;;
 
-(defclass thread-list ()
-  ((lock :initform (bt:make-lock "thread-list-lock"))
+(defclass threadlist ()
+  ((lock :initform (bt:make-lock "threadlist-lock"))
    (threads :initform '())
-   (thread-name-prefix :initform "thread-list")))
+   (thread-name-prefix :initform "threadlist")))
 
-(defmethod initialize-instance :after ((tlist thread-list) &key thread-name-prefix)
+(defmethod initialize-instance :after ((tlist threadlist) &key thread-name-prefix)
   (setf (slot-value tlist 'thread-name-prefix) thread-name-prefix))
 
-(defun thread-list-add-slot (thread-list)
+(defun threadlist-add-slot (threadlist)
   ;;(declare (optimize (debug 3) (speed 0) (space 0)))
   ;;(break)
-  (bt:with-lock-held ((slot-value thread-list 'lock))
-    (let ((name (format nil "~a-~a" (slot-value thread-list 'thread-name-prefix) (gensym))))
-      (push (list name :pending) (slot-value thread-list 'threads))
+  (bt:with-lock-held ((slot-value threadlist 'lock))
+    (let ((name (format nil "~a-~a" (slot-value threadlist 'thread-name-prefix) (gensym))))
+      (push (list name :pending) (slot-value threadlist 'threads))
       name)))
 
-(defun thread-list-attach-thread-to-slot (thread-list slot-name thread)
+(defun threadlist-attach-thread-to-slot (threadlist slot-name thread)
   ;;(declare (optimize (debug 3) (speed 0) (space 0)))
   ;;(break)
-  (bt:with-lock-held ((slot-value thread-list 'lock))
-    (let ((slot (assoc slot-name (slot-value thread-list 'threads) :test #'string=)))
+  (bt:with-lock-held ((slot-value threadlist 'lock))
+    (let ((slot (assoc slot-name (slot-value threadlist 'threads) :test #'string=)))
       (if (not slot)
 	  (error (format nil "Slot not found for name ~a" slot-name))
 	  (setf (second slot) thread)))))
 
-(defun thread-list-remove-slot (thread-list slot-name)
-  (bt:with-lock-held ((slot-value thread-list 'lock))
-    (setf (slot-value thread-list 'threads)
-	  (remove-if (lambda (thread) (string= slot-name (first thread))) (slot-value thread-list 'threads)))))
+(defun threadlist-remove-slot (threadlist slot-name)
+  (bt:with-lock-held ((slot-value threadlist 'lock))
+    (setf (slot-value threadlist 'threads)
+	  (remove-if (lambda (thread) (string= slot-name (first thread))) (slot-value threadlist 'threads)))))
 
-(defun thread-list-length (thread-list)
-  (bt:with-lock-held ((slot-value thread-list 'lock))
-    (length (slot-value thread-list 'threads))))
+(defun threadlist-length (threadlist)
+  (bt:with-lock-held ((slot-value threadlist 'lock))
+    (length (slot-value threadlist 'threads))))
 
-(defun thread-list-worker-thread-p (thread-list thread)
+(defun threadlist-worker-thread-p (threadlist thread)
   ;;(declare (optimize (debug 3) (speed 0) (space 0)))
   ;;(break)
-  (bt:with-lock-held ((slot-value thread-list 'lock))
-    (find-if (lambda (cur-thread) (eq thread (second cur-thread))) (slot-value thread-list 'threads))))
+  (bt:with-lock-held ((slot-value threadlist 'lock))
+    (find-if (lambda (cur-thread) (eq thread (second cur-thread))) (slot-value threadlist 'threads))))
 
-(defmacro thread-list-with-pool-threads (thread-list thread  &body body)
+(defmacro threadlist-with-pool-threads (threadlist thread  &body body)
   "Iterate through all non-pending threads"
   (let ((cur-thread (gensym)))
-    `(bt:with-lock-held ((slot-value ,thread-list 'lock))
-       (dolist (,cur-thread (slot-value ,thread-list 'threads))
+    `(bt:with-lock-held ((slot-value ,threadlist 'lock))
+       (dolist (,cur-thread (slot-value ,threadlist 'threads))
 	 (if (not (eq :pending (second ,cur-thread)))
 	     (let ((,thread (second ,cur-thread)))
 	       ,@body))))))
@@ -66,7 +66,7 @@
 (defclass threadpool ()
   ((job-queue :initform (queues:make-queue :simple-queue))
    (max-queue-size :initform nil)
-   (threadsv2 :initform (make-instance 'thread-list :thread-name-prefix "Threadpool"))
+   (threadsv2 :initform (make-instance 'threadlist :thread-name-prefix "Threadpool"))
    (size :initform nil)
    (name :initform "Threadpool")
    (state :initform nil
@@ -77,8 +77,13 @@
    (cv :initform (bt:make-condition-variable))
    (cv-lock :initform (bt:make-lock "thread-pool-cv-lock"))))
 
-(defmethod initialize-instance :after ((pool threadpool) &key name)
+(defmethod initialize-instance :after ((pool threadpool) &key name size max-queue-size) 
   (setf (slot-value pool 'name) name)
+  (setf (slot-value pool 'size) size)
+  (setf (slot-value pool 'max-queue-size)
+	(if max-queue-size
+	    max-queue-size
+	    (* size 2)))
   (setf (slot-value (slot-value pool 'threadsv2) 'thread-name-prefix) name))
 
 (defun get-job (pool)
@@ -103,28 +108,28 @@
 (defun worker-thread-p (pool)
   (if (not (threadpoolp pool))
       nil
-      (thread-list-worker-thread-p (slot-value pool 'threadsv2) (bt:current-thread))))
+      (threadlist-worker-thread-p (slot-value pool 'threadsv2) (bt:current-thread))))
 
 ;; Todo: do-times (thread-count)) as the algorithm is stupid enough
 (defun notify-all-idle-threads (pool)
   "Wake up all blocked threads."
-  (thread-list-with-pool-threads (slot-value pool 'threadsv2) thread
+  (threadlist-with-pool-threads (slot-value pool 'threadsv2) thread
     (declare (ignore thread))
     (bt:condition-notify (slot-value pool 'cv)))
     nil)
 
 (defun is-all-threads-stopped (pool) 
   "Returns t if all threads are stopped."
-  (eq 0 (thread-list-length (slot-value pool 'threadsv2))))
+  (eq 0 (threadlist-length (slot-value pool 'threadsv2))))
 
 (defun make-worker-thread (pool)
   "Adds a worker thread to the pool. The function has no useful return value."
   ;; Register the thread.
-  (let ((thread-name (thread-list-add-slot (slot-value pool 'threadsv2))))
+  (let ((thread-name (threadlist-add-slot (slot-value pool 'threadsv2))))
     (bt:make-thread
      (lambda ()
        ;; Attach thread instance to previously registered thread
-       (thread-list-attach-thread-to-slot
+       (threadlist-attach-thread-to-slot
 	(slot-value pool 'threadsv2)
 	thread-name
 	(bt:current-thread))
@@ -161,14 +166,14 @@
 	    (wait)
 	    (if (not (process))
 		(return)))
-	 (thread-list-remove-slot (slot-value pool 'threadsv2) thread-name)
+	 (threadlist-remove-slot (slot-value pool 'threadsv2) thread-name)
 	 (v:info :cl-threadpool "Worker thread ~a has stopped." thread-name)))
      :name thread-name)
     nil))
 
 ;;
 ;;
-;; Exported functions
+;; API
 ;;
 ;;
 
@@ -177,14 +182,7 @@
 name -- Name of the pool.
 size -- Number of worker threads.
 max-queue-size -- The maximum number of pending jobs"
-  (let ((pool (make-instance 'threadpool :name name)))
-    (setf (slot-value pool 'name) name)
-    (setf (slot-value pool 'size) size)
-    (setf (slot-value pool 'max-queue-size)
-	  (if max-queue-size
-	      max-queue-size
-	      (* size 2)))
-    pool))
+  (make-instance 'threadpool :name name :size size :max-queue-size max-queue-size))
 
 (defun start (pool)
   "Start the thread pool.
