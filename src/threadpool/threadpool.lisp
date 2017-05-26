@@ -22,6 +22,15 @@
 (defmethod initialize-instance :after ((tlist threadlist) &key thread-name-prefix)
   (setf (slot-value tlist 'thread-name-prefix) thread-name-prefix))
 
+(defmacro threadlist-with-pool-threads (threadlist thread  &body body)
+  "Iterate through all non-pending threads"
+  (let ((cur-thread (gensym)))
+    `(bt:with-lock-held ((slot-value ,threadlist 'lock))
+       (dolist (,cur-thread (slot-value ,threadlist 'threads))
+	 (if (not (eq :pending (second ,cur-thread)))
+	     (let ((,thread (second ,cur-thread)))
+	       ,@body))))))
+
 (defun threadlist-add-entry (threadlist)
   "Generates a thread name and adds it to the thread list. The thread instance
    must be attached to the entry via threadlist-attach-thread.
@@ -50,21 +59,14 @@
 	  (remove-if (lambda (thread) (string= thread-name (first thread))) (slot-value threadlist 'threads)))))
 
 (defun threadlist-length (threadlist)
-  (bt:with-lock-held ((slot-value threadlist 'lock))
-    (length (slot-value threadlist 'threads))))
+  (let ((c 0))
+    (threadlist-with-pool-threads threadlist thread
+      (setf c (+ c 1)))
+    c))
 
 (defun threadlist-worker-thread-p (threadlist thread)
   (bt:with-lock-held ((slot-value threadlist 'lock))
     (find-if (lambda (cur-thread) (eq thread (second cur-thread))) (slot-value threadlist 'threads))))
-
-(defmacro threadlist-with-pool-threads (threadlist thread  &body body)
-  "Iterate through all non-pending threads"
-  (let ((cur-thread (gensym)))
-    `(bt:with-lock-held ((slot-value ,threadlist 'lock))
-       (dolist (,cur-thread (slot-value ,threadlist 'threads))
-	 (if (not (eq :pending (second ,cur-thread)))
-	     (let ((,thread (second ,cur-thread)))
-	       ,@body))))))
 
 ;;
 ;; Thread pool
