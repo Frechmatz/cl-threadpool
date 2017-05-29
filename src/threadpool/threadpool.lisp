@@ -195,38 +195,36 @@
 
 (defun stop (pool)
   "Stop the thread pool.
-   Returns when all threads have stopped. 
+   Returns when all threads have stopped.
    pool -- A threadpool instance created by make-threadpool.
    * Does not kill threads.
    * All pending jobs will be executed.
    * The stopping thread must not be a worker thread of the pool (to avoid deadlock).
-   * The pool must not be in stopping state.
-   * The pool must not be in stopped state."
+   * The pool must not be in stopping state."
   (if (not (threadpoolp pool))
       (error "Not an instance of threadpool"))
   (signal-pool-error-if
    (lambda () (worker-thread-p pool))
    pool
    "Thread pool cannot be stopped by a worker thread")
+  (if (with-pool-state-lock-held pool s
+	(if (eq s :stopped)
+	    nil) ;;; already stopped: return nil
+	(signal-pool-error-if
+	 (lambda () (eq s :stopping))
+	 pool
+	 "Cannot stop a thread pool that is already stopping")
+	(setf (slot-value pool 'state) :stopping)
+	t) ;;; not stopped: return t
+      (loop
+	 (v:info :cl-threadpool "Stopping thread pool ~a..." (slot-value pool 'name))
+	 (notify-all pool)
+	 (sleep 1)
+	 (if (all-threads-stopped-p pool)
+	     (return))))
   (with-pool-state-lock-held pool s
-      (signal-pool-error-if
-       (lambda () (eq s :stopping))
-       pool
-       "Cannot stop a thread pool that is already stopping")
-      (signal-pool-error-if
-       (lambda () (eq s :stopped))
-       pool
-       "Tried stopping an already stopped thread pool")
-      (setf (slot-value pool 'state) :stopping))
-  (loop
-     (v:info :cl-threadpool "Stopping thread pool ~a..." (slot-value pool 'name))
-     (notify-all pool)
-     (sleep 1)
-     (if (all-threads-stopped-p pool)
-	 (return)))
-    (with-pool-state-lock-held pool s
-      (setf s :stopped))
-    (v:info :cl-threadpool "Thread pool ~a has stopped" (slot-value pool 'name)))
+    (setf s :stopped))
+  (v:info :cl-threadpool "Thread pool ~a has stopped" (slot-value pool 'name)))
 
 (defun add-job (pool job)
   "Add a job to the pool. 
