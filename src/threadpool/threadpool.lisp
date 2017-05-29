@@ -195,44 +195,38 @@
 
 (defun stop (pool)
   "Stop the thread pool.
+   Returns when all threads have stopped. 
    pool -- A threadpool instance created by make-threadpool.
-   * The function returns when all worker threads have stopped.
+   * Does not kill threads.
    * All pending jobs will be executed.
    * The stopping thread must not be a worker thread of the pool (to avoid deadlock).
    * The pool must not be in stopping state.
-   * The pool must not be in stopped state.
-   * If the pool has not been started yet, the pool state is set to stopped."
+   * The pool must not be in stopped state."
   (if (not (threadpoolp pool))
       (error "Not an instance of threadpool"))
   (signal-pool-error-if
    (lambda () (worker-thread-p pool))
    pool
    "Thread pool cannot be stopped by a worker thread")
-  (let ((enter-wait-loop nil))
-    (with-pool-state-lock-held pool s
+  (with-pool-state-lock-held pool s
       (signal-pool-error-if
        (lambda () (eq s :stopping))
        pool
-       "Tried stopping a thread pool that is already stopping")
+       "Cannot stop a thread pool that is already stopping")
       (signal-pool-error-if
        (lambda () (eq s :stopped))
        pool
        "Tried stopping an already stopped thread pool")
-      (if (not s)
-	  (setf (slot-value pool 'state) :stopped)
-	  (progn 
-	    (setf (slot-value pool 'state) :stopping)
-	    (setf enter-wait-loop t))))
-    (if enter-wait-loop
-	(loop
-	   (v:info :cl-threadpool "Stopping thread pool ~a..." (slot-value pool 'name))
-	   (notify-all pool)
-	   (sleep 1)
-	   (if (all-threads-stopped-p pool)
-	       (return))))
+      (setf (slot-value pool 'state) :stopping))
+  (loop
+     (v:info :cl-threadpool "Stopping thread pool ~a..." (slot-value pool 'name))
+     (notify-all pool)
+     (sleep 1)
+     (if (all-threads-stopped-p pool)
+	 (return)))
     (with-pool-state-lock-held pool s
       (setf s :stopped))
-    (v:info :cl-threadpool "Thread pool ~a has stopped" (slot-value pool 'name))))
+    (v:info :cl-threadpool "Thread pool ~a has stopped" (slot-value pool 'name)))
 
 (defun add-job (pool job)
   "Add a job to the pool. 
