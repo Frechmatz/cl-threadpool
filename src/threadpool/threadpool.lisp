@@ -143,8 +143,7 @@
 		   (with-pool-state-lock-held pool state
 		     (eq state :stopping)))
 		 (process ()
-		   "Process jobs until there is no more job available. 
-                   Returns nil if worker thread is to be stopped"
+		   "Process jobs until there is no more job available."
 		   (loop
 		      (let ((job (get-job pool)))
 			(if job
@@ -155,15 +154,16 @@
 				 :cl-threadpool
 				 "Job of worker thread ~a signalled a condition: ~a"
 				 thread-name c)))
-			    (return (not (is-quit))))))))
+			    (return))))))
 	  (v:info :cl-threadpool "Worker thread ~a has started." thread-name)
 	  (loop
 	     (wait)
-	     (if (not (process))
+	     (process)
+	     (if (is-quit)
 		 (return)))
 	  (v:info :cl-threadpool "Worker thread ~a has stopped." thread-name)))
       :name thread-name))
-     nil))
+    nil))
 
 ;;
 ;;
