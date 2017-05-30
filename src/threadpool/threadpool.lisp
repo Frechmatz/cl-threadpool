@@ -63,6 +63,7 @@
 (defclass threadpool ()
   ((job-queue :initform (queues:make-queue :simple-queue))
    (max-queue-size :initform nil)
+   (resignal-job-conditions :initform nil)
    (threads :initform (make-instance 'threadlist :thread-name-prefix "Threadpool"))
    (size :initform nil)
    (name :initform "Threadpool")
@@ -74,8 +75,9 @@
    (cv :initform (bt:make-condition-variable))
    (cv-lock :initform (bt:make-lock "thread-pool-cv-lock"))))
 
-(defmethod initialize-instance :after ((pool threadpool) &key name size max-queue-size) 
+(defmethod initialize-instance :after ((pool threadpool) &key name size max-queue-size resignal-job-conditions) 
   (setf (slot-value pool 'name) name)
+  (setf (slot-value pool 'resignal-job-conditions) resignal-job-conditions)
   (setf (slot-value pool 'size) size)
   (setf (slot-value pool 'max-queue-size)
 	(if max-queue-size
@@ -119,7 +121,8 @@
 
 (defun make-worker-thread (pool)
   "Adds a worker thread to the pool. The function has no useful return value."
-  (let ((thread-name (generate-thread-name (slot-value pool 'threads))))
+  (let ((thread-name (generate-thread-name (slot-value pool 'threads)))
+	(resignal-job-conditions (slot-value pool 'resignal-job-conditions)))
     (add-thread
      (slot-value pool 'threads)
      (bt:make-thread
@@ -153,7 +156,10 @@
 				(v:error
 				 :cl-threadpool
 				 "Job of worker thread ~a signalled a condition: ~a"
-				 thread-name c)))
+				 thread-name c)
+				(if resignal-job-conditions
+				    (error c))
+				))
 			    (return))))))
 	  (v:info :cl-threadpool "Worker thread ~a has started." thread-name)
 	  (loop
@@ -171,12 +177,13 @@
 ;;
 ;;
 
-(defun make-threadpool (name size &key (max-queue-size nil))
+(defun make-threadpool (name size &key (max-queue-size nil) (resignal-job-conditions nil))
   "Create a thread pool.
    name -- Name of the pool.
    size -- Number of worker threads.
-   max-queue-size -- The maximum number of pending jobs"
-  (make-instance 'threadpool :name name :size size :max-queue-size max-queue-size))
+   max-queue-size -- The maximum number of pending jobs
+   resignal-job-conditions -- if t then conditions signalled by the worker will be resignalled as errors"
+  (make-instance 'threadpool :name name :size size :max-queue-size max-queue-size :resignal-job-conditions resignal-job-conditions))
 
 (defun start (pool)
   "Start the thread pool.
@@ -255,5 +262,4 @@
     (queues:qpush (slot-value pool 'job-queue) job)
     (v:trace :cl-threadpool "Added job to queue of thread pool ~a" (slot-value pool 'name))
     (bt:condition-notify (slot-value pool 'cv))))
-
 
