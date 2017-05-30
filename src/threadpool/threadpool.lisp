@@ -181,7 +181,7 @@
 ;; Helper stuff
 ;;
 
-(defmacro loop-with-timeout (seconds execution-body timeout-body)
+(defmacro loop-until (seconds execution-body timeout-body)
   "Executes repeatedly execution-body until execution-body returns true. If timeout has been
 reached the timeout body will be executed once
 seconds -- the timeout in seconds or nil"
@@ -246,7 +246,7 @@ seconds -- the timeout in seconds or nil"
 	    nil) ;;; already stopped: return nil
 	(setf (slot-value pool 'state) :stopping)
 	t) ;;; not stopped: return t
-      (loop-with-timeout force-destroy-timeout-seconds
+      (loop-until force-destroy-timeout-seconds
 	(progn
 	  (v:info :cl-threadpool
 		  "Stopping thread pool ~a..."
