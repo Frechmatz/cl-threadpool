@@ -3,7 +3,7 @@
 
 (define-test crashing-worker-test ()
   "Test that a crashing worker job doesn't kill the pool"
-  (let ((pool (cl-threadpool:make-threadpool "testpool" 1)) (result nil))
+  (let ((pool (cl-threadpool:make-threadpool 1)) (result nil))
     (cl-threadpool:start pool)
     (cl-threadpool:add-job
      pool

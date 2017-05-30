@@ -3,7 +3,7 @@
 
 (define-test pool-stop-twice-test-1 ()
   "Stop pool after it has already been stopped."
-  (let ((pool (cl-threadpool:make-threadpool "testpool" 5)))
+  (let ((pool (cl-threadpool:make-threadpool 5)))
     (cl-threadpool:start pool)
     (cl-threadpool:add-job
      pool

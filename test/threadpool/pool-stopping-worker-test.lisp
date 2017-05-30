@@ -3,7 +3,7 @@
 
 (define-test pool-stopping-worker-thread ()
   "Test that pool cannot be stopped by a worker thread"
-  (let ((pool (cl-threadpool:make-threadpool "testpool" 5)))
+  (let ((pool (cl-threadpool:make-threadpool 5)))
     (cl-threadpool:start pool)
     (let ((got-error nil))
       (cl-threadpool:add-job

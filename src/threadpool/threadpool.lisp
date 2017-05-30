@@ -33,7 +33,7 @@
 (defun generate-thread-name (threadlist)
   "Generate a thread name"
   (bt:with-lock-held ((slot-value threadlist 'lock))
-    (format nil "~a-~a" (slot-value threadlist 'thread-name-prefix) (gensym))))
+    (format nil "~a-Thread-~a" (slot-value threadlist 'thread-name-prefix) (gensym))))
 
 (defun add-thread (threadlist thread)
   "Add a thread. If the thread is already present, then do nothing"
@@ -76,14 +76,14 @@
    (cv-lock :initform (bt:make-lock "thread-pool-cv-lock"))))
 
 (defmethod initialize-instance :after ((pool threadpool) &key name size max-queue-size resignal-job-conditions) 
-  (setf (slot-value pool 'name) name)
+  (setf (slot-value pool 'name) (if name name (format nil "Threadpool-~a" (gensym))))
   (setf (slot-value pool 'resignal-job-conditions) resignal-job-conditions)
   (setf (slot-value pool 'size) size)
   (setf (slot-value pool 'max-queue-size)
 	(if max-queue-size
 	    max-queue-size
 	    (* size 2)))
-  (setf (slot-value (slot-value pool 'threads) 'thread-name-prefix) name))
+  (setf (slot-value (slot-value pool 'threads) 'thread-name-prefix) (slot-value pool 'name)))
 
 (defun get-job (pool)
   (let ((job nil))
@@ -177,7 +177,7 @@
 ;;
 ;;
 
-(defun make-threadpool (name size &key (max-queue-size nil) (resignal-job-conditions nil))
+(defun make-threadpool (size &key (name nil) (max-queue-size nil) (resignal-job-conditions nil))
   "Create a thread pool.
    name -- Name of the pool.
    size -- Number of worker threads.

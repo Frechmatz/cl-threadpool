@@ -2,7 +2,7 @@
 
 (define-test pool-queue-length-test-1 ()
   ""
-  (let ((pool (cl-threadpool:make-threadpool "testpool" 1 :max-queue-size 3)))
+  (let ((pool (cl-threadpool:make-threadpool 1 :max-queue-size 3)))
     (cl-threadpool:start pool)
     (let ((got-error nil))
       (handler-case

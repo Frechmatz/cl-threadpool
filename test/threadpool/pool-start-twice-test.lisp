@@ -2,7 +2,7 @@
 
 (define-test pool-start-twice-test ()
   "Start pool twice"
-  (let ((pool (cl-threadpool:make-threadpool "testpool" 5)))
+  (let ((pool (cl-threadpool:make-threadpool 5)))
     (cl-threadpool:start pool)
     (let ((got-error nil))
       (handler-case 
