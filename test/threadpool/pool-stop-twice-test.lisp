@@ -2,7 +2,7 @@
 (in-package :cl-threadpool-test)
 
 (define-test pool-stop-twice-test-1 ()
-  "Stop pool after it has already been stopped."
+  "Nested pool stopping (this is allowed)."
   (let ((pool (cl-threadpool:make-threadpool 5)))
     (cl-threadpool:start pool)
     (cl-threadpool:add-job
@@ -13,5 +13,5 @@
       (handler-case 
 	  (cl-threadpool:stop pool)
 	(error (err) (setf got-error err)))
-      (assert-true got-error))))
+      (assert-false got-error))))
 

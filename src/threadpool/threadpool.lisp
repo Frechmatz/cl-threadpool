@@ -206,8 +206,7 @@
    pool -- A threadpool instance created by make-threadpool.
    * Does not kill threads.
    * All pending jobs will be executed.
-   * The stopping thread must not be a worker thread of the pool (to avoid deadlock).
-   * The pool must not be in stopping state."
+   * The stopping thread must not be a worker thread of the pool (to avoid deadlock)."
   (if (not (threadpoolp pool))
       (error "Not an instance of threadpool"))
   (signal-pool-error-if
@@ -217,10 +216,10 @@
   (if (with-pool-state-lock-held pool s
 	(if (eq s :stopped)
 	    nil) ;;; already stopped: return nil
-	(signal-pool-error-if
-	 (lambda () (eq s :stopping))
-	 pool
-	 "Cannot stop a thread pool that is already stopping")
+	;;(signal-pool-error-if
+	;; (lambda () (eq s :stopping))
+	;; pool
+	;; "Cannot stop a thread pool that is already stopping")
 	(setf (slot-value pool 'state) :stopping)
 	t) ;;; not stopped: return t
       (loop

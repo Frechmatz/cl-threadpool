@@ -11,13 +11,13 @@
 
 
 (define-test pool-stop-instantiated-test-2 ()
-  "Stop pool two times after it has been instantiated but not started"
+  "Stop pool two times after it has been instantiated but not started (this is allowd)"
   (let ((pool (cl-threadpool:make-threadpool 5)))
     (cl-threadpool:stop pool)
     (let ((got-error nil))
       (handler-case 
 	  (cl-threadpool:stop pool)
 	(error (err) (setf got-error err)))
-      (assert-true got-error))))
+      (assert-false got-error))))
 
 
