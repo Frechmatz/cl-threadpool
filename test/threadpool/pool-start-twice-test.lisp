@@ -8,5 +8,6 @@
       (handler-case 
 	  (cl-threadpool:start pool)
 	(error (err) (setf got-error err)))
-      (assert-true got-error))))
+      (assert-true got-error)
+      (assert-true (typep got-error 'cl-threadpool:threadpool-error)))))
 

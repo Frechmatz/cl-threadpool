@@ -7,7 +7,8 @@
       (handler-case 
 	  (cl-threadpool:add-job pool (lambda ()))
 	(error (err) (setf got-error err)))
-      (assert-true got-error))))
+      (assert-true got-error)
+      (assert-true (typep got-error 'cl-threadpool:threadpool-error)))))
 
 (define-test pool-add-job-test-2 ()
   "Add job to pool that has stopped"
@@ -21,4 +22,5 @@
       (handler-case 
 	  (cl-threadpool:add-job pool (lambda ()))
 	(error (err) (setf got-error err)))
-      (assert-true got-error))))
+      (assert-true got-error)
+      (assert-true (typep got-error 'cl-threadpool:threadpool-error)))))

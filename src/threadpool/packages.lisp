@@ -6,6 +6,8 @@
   (:export :add-job)
   (:export :threadpoolp)
   (:export :worker-thread-p)
+  (:export :threadpool-error)
+  (:export :threadpool-error-queue-capacity-exceeded)
   )
 
 

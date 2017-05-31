@@ -5,6 +5,15 @@
 
 (in-package :cl-threadpool)
 
+(define-condition threadpool-error (error)
+  "The default condition that is signalled by thread pools"
+  ((text :initarg :text :reader text)))
+
+(define-condition threadpool-error-queue-capacity-exceeded (error)
+  "This condition is signalled when a job could not be added to the pool
+   because the maximum number of pending jobs was reached"
+  ((text :initarg :text :reader text)))
+
 ;;
 ;; Thread list
 ;;
@@ -95,9 +104,9 @@
      (let ((,state (slot-value pool 'state)))
        ,@body)))
 
-(defmacro signal-pool-error-if (predicate pool error-message)
+(defmacro signal-pool-error-if (predicate pool error-message &key (cond-type 'threadpool-error))
   `(if (funcall ,predicate)
-       (error (format nil "~a: ~a" ,error-message (slot-value ,pool 'name)))))
+       (error ',cond-type :text (format nil "~a: ~a" ,error-message (slot-value ,pool 'name)))))
 
 (defun threadpoolp (obj)
   "Returns t if the given object represents a thread pool."
@@ -233,7 +242,7 @@
   "Start the thread pool.
    pool -- A thread pool instance created by make-threadpool."
   (if (not (threadpoolp pool))
-      (error "Not an instance of threadpool"))
+      (error 'threadpool-error :text "Not an instance of threadpool"))
   (with-pool-state-lock-held pool s
     (signal-pool-error-if (lambda() s) pool "Thread pool can only be started once")
     (v:info :cl-threadpool "Starting thread pool ~a..." (slot-value pool 'name))
@@ -253,7 +262,7 @@
    * All queued jobs will be executed.
    * The stopping thread must not be a worker thread of the pool (to avoid deadlock)."
   (if (not (threadpoolp pool))
-      (error "Not an instance of threadpool"))
+      (error 'threadpool-error :text "Not an instance of threadpool"))
   (signal-pool-error-if
    (lambda () (worker-thread-p pool))
    pool
@@ -288,7 +297,7 @@
    * The pool must not be in stopping state.
    * The pool must not be in stopped state."
   (if (not (threadpoolp pool))
-      (error "Not an instance of threadpool"))
+      (error 'threadpool-error :text "Not an instance of threadpool"))
   (with-pool-state-lock-held pool s
     (signal-pool-error-if
      (lambda () (eq s nil))
@@ -305,7 +314,8 @@
     (signal-pool-error-if
      (lambda () (> (queues:qsize (slot-value pool 'job-queue)) (slot-value pool 'max-queue-size)))
      pool
-     "Maximum job queue length reached")
+     "Maximum job queue length reached"
+     :cond-type threadpool-error-queue-capacity-exceeded)
     (queues:qpush (slot-value pool 'job-queue) job)
     (v:trace :cl-threadpool "Added job to queue of thread pool ~a" (slot-value pool 'name))
     (bt:condition-notify (slot-value pool 'cv))))

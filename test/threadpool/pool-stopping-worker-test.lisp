@@ -13,7 +13,8 @@
 	     (cl-threadpool:stop pool)
 	   (error (err) (setf got-error err)))))
       (cl-threadpool:stop pool)
-      (assert-true got-error))))
+      (assert-true got-error)
+      (assert-true (typep got-error 'cl-threadpool:threadpool-error)))))
 
 
 
