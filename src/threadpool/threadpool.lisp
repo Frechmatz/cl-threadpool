@@ -37,7 +37,7 @@
 
 (defun add-thread (threadlist thread)
   "Add a thread. If the thread is already present, then do nothing"
-  (declare (optimize (debug 3) (speed 0) (space 0)))
+  ;;(declare (optimize (debug 3) (speed 0) (space 0)))
   (bt:with-lock-held ((slot-value threadlist 'lock))
     (if (not (find-if (lambda (cur-thread) (eq thread cur-thread)) (slot-value threadlist 'threads)))
 	(push thread (slot-value threadlist 'threads)))))
@@ -51,8 +51,8 @@
     c))
 
 (defun threadlist-worker-thread-p (threadlist thread)
+  "Returns true if the given thread is a worker thread of the given pool."
   (declare (optimize (debug 3) (speed 0) (space 0)))
-  ;;(break)
   (bt:with-lock-held ((slot-value threadlist 'lock))
     (find-if (lambda (cur-thread) (eq thread cur-thread)) (slot-value threadlist 'threads))))
 
@@ -86,10 +86,9 @@
   (setf (slot-value (slot-value pool 'threads) 'thread-name-prefix) (slot-value pool 'name)))
 
 (defun get-job (pool)
-  (let ((job nil))
-    (bt:with-lock-held ((slot-value pool 'state-lock))
-      (setf job (queues:qpop (slot-value pool 'job-queue))))
-  job))
+  "Get a job of the job queue. Returns nil if no job is available"
+  (bt:with-lock-held ((slot-value pool 'state-lock))
+    (queues:qpop (slot-value pool 'job-queue))))
 
 (defmacro with-pool-state-lock-held (pool state &body body)
   `(bt:with-lock-held ((slot-value ,pool 'state-lock))
@@ -105,6 +104,7 @@
   (typep obj 'threadpool))
 
 (defun worker-thread-p (pool)
+  "Returns true if the current thread is a worker thread of the given pool."
   (if (not (threadpoolp pool))
       nil
       (threadlist-worker-thread-p (slot-value pool 'threads) (bt:current-thread))))
@@ -116,6 +116,7 @@
     (bt:condition-notify (slot-value pool 'cv))))
 
 (defun destroy-all (pool)
+  "Destroy all threads that haven't exited yet."
   (with-threads (slot-value pool 'threads) thread
     (v:info :cl-threadpool "Destroying thread ~a" (bt:thread-name thread))
     (bt:destroy-thread thread)))
@@ -163,8 +164,7 @@
 				 "Job of worker thread ~a signalled a condition: ~a"
 				 thread-name c)
 				(if resignal-job-conditions
-				    (error c))
-				))
+				    (error c))))
 			    (return))))))
 	  (v:info :cl-threadpool "Worker thread ~a has started." thread-name)
 	  (loop
@@ -183,13 +183,13 @@
 
 (defmacro poll ((&key (timeout-seconds nil)) test-body timeout-body)
   "Evaluates repeatedly test-body. If the test-body returns true the loop
-terminates. If the timeout has been reached the timeout-body is executed 
-and the loop terminates.
-timeout-seconds -- the timeout in seconds or nil
-test-body -- The form to be evaluated repeatedly. It is up to the 
-    test body to take care of CPU usage, for example via calls
-    to sleep. The test-body is evaluated at least once.
-timeout-body -- The form to be evaluated when a timeout occurs."
+   terminates. If the timeout has been reached the timeout-body is executed 
+   and the loop terminates.
+   timeout-seconds -- the timeout in seconds or nil for no timeout.
+   test-body -- The form to be evaluated repeatedly. It is up to the 
+      test body to take care of CPU usage. The test-body is evaluated 
+      at least once.
+   timeout-body -- The form to be evaluated when a timeout occurs."
   (let ((start-time (gensym)) (first-test-p (gensym)))
     `(progn
        (let ((,start-time (get-internal-real-time)) (,first-test-p t))
@@ -217,8 +217,13 @@ timeout-body -- The form to be evaluated when a timeout occurs."
    name -- Name of the pool.
    size -- Number of worker threads.
    max-queue-size -- The maximum number of pending jobs
-   resignal-job-conditions -- if t then conditions signalled by the worker will be resignalled as errors"
-  (make-instance 'threadpool :name name :size size :max-queue-size max-queue-size :resignal-job-conditions resignal-job-conditions))
+   resignal-job-conditions -- if t then conditions signalled by the worker will be 
+   resignalled as errors"
+  (make-instance 'threadpool
+		 :name name
+		 :size size
+		 :max-queue-size max-queue-size
+		 :resignal-job-conditions resignal-job-conditions))
 
 (defun start (pool)
   "Start the thread pool.
