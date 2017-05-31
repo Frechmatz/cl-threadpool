@@ -181,22 +181,30 @@
 ;; Helper stuff
 ;;
 
-(defmacro loop-until (seconds execution-body timeout-body)
-  "Executes repeatedly execution-body until execution-body returns true. If timeout has been
-reached the timeout body will be executed once
-seconds -- the timeout in seconds or nil"
-  (let ((start-time (gensym)) (cur-time (gensym)))
+(defmacro poll ((&key (timeout-seconds nil)) test-body timeout-body)
+  "Evaluates repeatedly test-body. If the test-body returns true the loop
+terminates. If the timeout has been reached the timeout-body is executed 
+and the loop terminates.
+timeout-seconds -- the timeout in seconds or nil
+test-body -- The form to be evaluated repeatedly. It is up to the 
+    test body to take care of CPU usage, for example via calls
+    to sleep. The test-body is evaluated at least once.
+timeout-body -- The form to be evaluated when a timeout occurs."
+  (let ((start-time (gensym)) (first-test-p (gensym)))
     `(progn
-       (let ((,start-time (get-internal-real-time)))
+       (let ((,start-time (get-internal-real-time)) (,first-test-p t))
 	 (loop
-	    (let ((,cur-time (get-internal-real-time)))
-	      (if (or (not ,seconds) (> ,seconds (/ (- ,cur-time ,start-time) internal-time-units-per-second)))
-		  (progn
-		    (if ,execution-body
-			(return)))
-		  (progn
-		    ,timeout-body
-		    (return)))))))))
+	    (if (or
+		 ,first-test-p
+		 (not ,timeout-seconds)
+		 (> ,timeout-seconds (/ (- (get-internal-real-time) ,start-time) internal-time-units-per-second)))
+		(progn
+		  (setf ,first-test-p nil)
+		  (if ,test-body
+		      (return)))
+		(progn
+		  ,timeout-body
+		  (return))))))))
 
 ;;
 ;;
@@ -246,7 +254,7 @@ seconds -- the timeout in seconds or nil"
 	    nil) ;;; already stopped: return nil
 	(setf (slot-value pool 'state) :stopping)
 	t) ;;; not stopped: return t
-      (loop-until force-destroy-timeout-seconds
+      (poll (:timeout-seconds force-destroy-timeout-seconds)
 	(progn
 	  (v:info :cl-threadpool
 		  "Stopping thread pool ~a..."
