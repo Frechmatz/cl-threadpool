@@ -6,13 +6,13 @@
 (in-package :cl-threadpool)
 
 (define-condition threadpool-error (error)
-  "The default condition that is signalled by thread pools"
-  ((text :initarg :text :reader text)))
+  ((text :initarg :text :reader text))
+  (:documentation "The default condition that is signalled by thread pools"))
 
 (define-condition threadpool-error-queue-capacity-exceeded (error)
-  "This condition is signalled when a job could not be added to the pool
-   because the maximum number of pending jobs was reached"
-  ((text :initarg :text :reader text)))
+  ((text :initarg :text :reader text))
+  (:documentation "This condition is signalled when a job could not be added to the pool
+   because the maximum number of pending jobs was reached"))
 
 ;;
 ;; Thread list
@@ -241,6 +241,10 @@
 (defun start (pool)
   "Start the thread pool.
    pool -- A thread pool instance created by make-threadpool."
+  ;; set global logging level
+  ;;(setf (v:repl-level) :error)
+  ;; disable logging
+  ;;(setf (v:repl-categories) (v:remove-repl-category (list :cl-threadpool)))
   (if (not (threadpoolp pool))
       (error 'threadpool-error :text "Not an instance of threadpool"))
   (with-pool-state-lock-held pool s
