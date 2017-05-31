@@ -36,7 +36,7 @@
     (format nil "~a-Thread-~a" (slot-value threadlist 'thread-name-prefix) (gensym))))
 
 (defun add-thread (threadlist thread)
-  "Add a thread. If the thread is already present, then do nothing"
+  "Add a thread. If the thread is already present then do nothing"
   ;;(declare (optimize (debug 3) (speed 0) (space 0)))
   (bt:with-lock-held ((slot-value threadlist 'lock))
     (if (not (find-if (lambda (cur-thread) (eq thread cur-thread)) (slot-value threadlist 'threads)))
@@ -69,8 +69,8 @@
    (name :initform "Threadpool")
    (state :initform nil
 	  :documentation
-	     "State of the thread pool. 
-              One of nil, :RUNNING, :STOPPING, :STOPPED")
+	  "State of the thread pool. 
+           One of nil, :RUNNING, :STOPPING, :STOPPED")
    (state-lock :initform (bt:make-lock "thread-pool-state-lock"))
    (cv :initform (bt:make-condition-variable))
    (cv-lock :initform (bt:make-lock "thread-pool-cv-lock"))))
@@ -133,39 +133,40 @@
      (slot-value pool 'threads)
      (bt:make-thread
       (lambda ()
-	;; register the thread once more or for the first time to ensure that
-	;; regardless of timing circumstances a thread can be identified
-	;; as a pool worker thread.
+	;; Register thread when it starts execution
 	(add-thread (slot-value pool 'threads) (bt:current-thread))
-	(labels ((wait ()
-		   (v:trace :cl-threadpool "Worker thread ~a is going to sleep" thread-name)
-		   ;; Lock
-		   (bt:acquire-lock (slot-value pool 'cv-lock) t)
-		   ;; Wait
-		   (bt:condition-wait
-		    (slot-value pool 'cv)
-		    (slot-value pool 'cv-lock))
-		   ;; Unlock (we do not need the lock for further processing)
-		   (bt:release-lock (slot-value pool 'cv-lock))
-		   (v:trace :cl-threadpool "Worker thread ~a has been woken up" thread-name))
-		 (is-quit ()
-		   (with-pool-state-lock-held pool state
-		     (eq state :stopping)))
-		 (process ()
-		   "Process jobs until there is no more job available."
-		   (loop
-		      (let ((job (get-job pool)))
-			(if job
-			    (handler-case
-				(funcall job)
-			      (condition (c)
-				(v:error
-				 :cl-threadpool
-				 "Job of worker thread ~a signalled a condition: ~a"
-				 thread-name c)
-				(if resignal-job-conditions
-				    (error c))))
-			    (return))))))
+	(labels
+	    ((wait ()
+	       "Wait until thread is scheduled for execution"
+	       (v:trace :cl-threadpool "Worker thread ~a is going to sleep" thread-name)
+	       ;; Lock
+	       (bt:acquire-lock (slot-value pool 'cv-lock) t)
+	       ;; Wait
+	       (bt:condition-wait
+		(slot-value pool 'cv)
+		(slot-value pool 'cv-lock))
+	       ;; Unlock (we do not need the lock for further processing)
+	       (bt:release-lock (slot-value pool 'cv-lock))
+	       (v:trace :cl-threadpool "Worker thread ~a has been woken up" thread-name))
+	     (is-quit ()
+	       "Returns true when pool is stopping and the thread shall exit"
+	       (with-pool-state-lock-held pool state
+		 (eq state :stopping)))
+	     (process ()
+	       "Fetch jobs from queue and process them"
+	       (loop
+		  (let ((job (get-job pool)))
+		    (if job
+			(handler-case
+			    (funcall job)
+			  (condition (c)
+			    (v:error
+			     :cl-threadpool
+			     "Job of worker thread ~a signalled a condition: ~a"
+			     thread-name c)
+			    (if resignal-job-conditions
+				(error c))))
+			(return))))))
 	  (v:info :cl-threadpool "Worker thread ~a has started." thread-name)
 	  (loop
 	     (wait)
@@ -197,7 +198,10 @@
 	    (if (or
 		 ,first-test-p
 		 (not ,timeout-seconds)
-		 (> ,timeout-seconds (/ (- (get-internal-real-time) ,start-time) internal-time-units-per-second)))
+		 (> ,timeout-seconds
+		    (/
+		     (- (get-internal-real-time) ,start-time)
+		     internal-time-units-per-second)))
 		(progn
 		  (setf ,first-test-p nil)
 		  (if ,test-body
