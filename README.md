@@ -2,6 +2,9 @@
 
 A Thread pool implemented in Common Lisp
 
+The thread pool consists of a number of worker threads and a job queue. The worker threads are picking
+jobs from the queue and execute them. 
+
 Installation
 ------------
 
