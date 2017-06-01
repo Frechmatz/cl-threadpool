@@ -46,7 +46,6 @@
 
 (defun add-thread (threadlist thread)
   "Add a thread. If the thread is already present then do nothing"
-  ;;(declare (optimize (debug 3) (speed 0) (space 0)))
   (bt:with-lock-held ((slot-value threadlist 'lock))
     (if (not (find-if (lambda (cur-thread) (eq thread cur-thread)) (slot-value threadlist 'threads)))
 	(push thread (slot-value threadlist 'threads)))))
@@ -61,7 +60,6 @@
 
 (defun threadlist-worker-thread-p (threadlist thread)
   "Returns true if the given thread is a worker thread of the given pool."
-  (declare (optimize (debug 3) (speed 0) (space 0)))
   (bt:with-lock-held ((slot-value threadlist 'lock))
     (find-if (lambda (cur-thread) (eq thread cur-thread)) (slot-value threadlist 'threads))))
 
@@ -74,7 +72,7 @@
    (max-queue-size :initform nil)
    (resignal-job-conditions :initform nil)
    (threads :initform (make-instance 'threadlist :thread-name-prefix "Threadpool"))
-   (size :initform nil)
+   (size :initform nil :documentation "Number of worker threads")
    (name :initform "Threadpool")
    (state :initform nil
 	  :documentation
@@ -94,29 +92,19 @@
 	    (* size 2)))
   (setf (slot-value (slot-value pool 'threads) 'thread-name-prefix) (slot-value pool 'name)))
 
-(defun get-job (pool)
-  "Get a job of the job queue. Returns nil if no job is available"
-  (bt:with-lock-held ((slot-value pool 'state-lock))
-    (queues:qpop (slot-value pool 'job-queue))))
-
 (defmacro with-pool-state-lock-held (pool state &body body)
   `(bt:with-lock-held ((slot-value ,pool 'state-lock))
      (let ((,state (slot-value pool 'state)))
        ,@body)))
 
+(defun get-job (pool)
+  "Get a job of the job queue. Returns nil if no job is available"
+  (bt:with-lock-held ((slot-value pool 'state-lock))
+    (queues:qpop (slot-value pool 'job-queue))))
+
 (defmacro signal-pool-error-if (predicate pool error-message &key (cond-type 'threadpool-error))
   `(if (funcall ,predicate)
        (error ',cond-type :text (format nil "~a: ~a" ,error-message (slot-value ,pool 'name)))))
-
-(defun threadpoolp (obj)
-  "Returns t if the given object represents a thread pool."
-  (typep obj 'threadpool))
-
-(defun worker-thread-p (pool)
-  "Returns true if the current thread is a worker thread of the given pool."
-  (if (not (threadpoolp pool))
-      nil
-      (threadlist-worker-thread-p (slot-value pool 'threads) (bt:current-thread))))
 
 (defun notify-all (pool)
   "Wake up all blocked threads."
@@ -135,7 +123,7 @@
   (eq 0 (thread-count (slot-value pool 'threads))))
 
 (defun make-worker-thread (pool)
-  "Adds a worker thread to the pool. The function has no useful return value."
+  "Adds a worker thread to the pool."
   (let ((thread-name (generate-thread-name (slot-value pool 'threads)))
 	(resignal-job-conditions (slot-value pool 'resignal-job-conditions)))
     (add-thread
@@ -147,7 +135,6 @@
 	(labels
 	    ((wait ()
 	       "Wait until thread is scheduled for execution"
-	       (v:trace :cl-threadpool "Worker thread ~a is going to sleep" thread-name)
 	       ;; Lock
 	       (bt:acquire-lock (slot-value pool 'cv-lock) t)
 	       ;; Wait
@@ -237,6 +224,16 @@
 		 :size size
 		 :max-queue-size max-queue-size
 		 :resignal-job-conditions resignal-job-conditions))
+
+(defun threadpoolp (obj)
+  "Returns t if the given object represents a thread pool."
+  (typep obj 'threadpool))
+
+(defun worker-thread-p (pool)
+  "Returns true if the current thread is a worker thread of the given pool."
+  (if (not (threadpoolp pool))
+      nil
+      (threadlist-worker-thread-p (slot-value pool 'threads) (bt:current-thread))))
 
 (defun start (pool)
   "Start the thread pool.
