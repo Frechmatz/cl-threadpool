@@ -65,9 +65,11 @@ More detailed documentation is provided by the documentation strings of the func
 
 * **stop** (pool &key (force-destroy-timeout-seconds nil))
 
-   The function returns when all jobs have finished.
+   The function returns when all worker threads are no longer alive. A worker thread terminates
+when no job is available and the thread pool shall be stopped.
 
-    * __force-destroy-timeout-seconds__ An optional timeout in seconds after which all threads will be destroyed
+    * __force-destroy-timeout-seconds__ An optional timeout in seconds after which all pending
+worker threads will be destroyed.
   
 * **threadpoolp** (obj)
 
