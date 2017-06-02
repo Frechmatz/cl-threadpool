@@ -10,7 +10,7 @@ Installation
 
 Download cl-threadpool and add it to the asdf-system path
 
-Dependencies:
+Dependencies (all available in Quicklisp):
 
 * [bordeaux-threads](https://github.com/sionescu/bordeaux-threads) 
 * [queues](https://github.com/oconnore/queues)
