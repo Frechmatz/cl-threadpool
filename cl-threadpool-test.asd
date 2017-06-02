@@ -29,6 +29,7 @@
 				       (:file "pool-stop-instantiated-test")
 				       (:file "pool-start-twice-test")
 				       (:file "pool-add-job-test")
+				       (:file "pool-stop-processed-all-test")
 				       (:file "crashing-worker-test")
 				       (:file "pool-queue-length-test")
 				       (:file "force-destroy-test")))))
