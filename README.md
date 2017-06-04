@@ -2,15 +2,20 @@
 
 A Thread pool implemented in Common Lisp
 
-The thread pool consists of a number of worker threads and a job queue. The worker threads are picking
-jobs from the queue and execute them. 
+The thread pool consists of a fixed number of worker threads and a job queue. The worker
+threads are picking jobs from the queue and execute them. 
 
 Installation
 ------------
 
-Download cl-threadpool and add it to the asdf-system path
+Download cl-threadpool and add it to the asdf-system path. This step is required as long as
+cl-threadpool is not available via quicklisp.
 
-Dependencies (all available in Quicklisp):
+Install (downloads and installs all dependencies)
+
+    (ql:quickload "cl-threadpool")
+
+Dependencies:
 
 * [bordeaux-threads](https://github.com/sionescu/bordeaux-threads) 
 * [queues](https://github.com/oconnore/queues)
@@ -52,7 +57,7 @@ More detailed documentation is provided by the documentation strings of the func
     * __size__ Number of worker threads
     * __max-queue-size__ Maximum size of job queue
     * __name__  Name of the pool
-    * __resignal-job-conditions__ if t then conditions signalled by a worker will be resignalled as errors
+    * __resignal-job-conditions__ if true then conditions signalled by a worker will be resignalled as errors.
   
 * **start** (pool)
 
@@ -66,16 +71,16 @@ More detailed documentation is provided by the documentation strings of the func
 * **stop** (pool &key (force-destroy-timeout-seconds nil))
 
    The function returns when all worker threads are no longer alive. A worker thread terminates
-when no job is available and the thread pool shall be stopped.
+when no job is available and the thread pool is stopping.
 
-    * __force-destroy-timeout-seconds__ An optional timeout in seconds after which all pending
-worker threads will be destroyed.
+    * __force-destroy-timeout-seconds__ An optional timeout in seconds after which all still alive
+pool threads will be destroyed.
   
-* **threadpoolp** (obj)
+* **threadpoolp** (obj) => generalized boolean
 
    Returns t if the given object represents a thread pool.
 
-* **worker-thread-p** (pool)
+* **worker-thread-p** (pool) => generalized boolean
 
    Returns t if the current thread is a worker thread of the pool.
 
@@ -96,11 +101,44 @@ Logging
 
 The thread pool uses the [Verbose](https://github.com/Shinmera/verbose) framework for logging.
 
-Disable logging
+Disable logging of the cl-threadpool package
 
     (setf (v:repl-categories) (v:remove-repl-category (list :cl-threadpool)))
 
 Set logging level (globally)
 
     (setf (v:repl-level) :error)
+
+Running the tests
+-----------------
+
+The tests are using the [lisp-unit](https://github.com/OdonataResearchLLC/lisp-unit) framework.
+The system definition file is cl-threadpool-test.asd.
+
+Run all tests
+
+    (asdf:load-system "cl-threadpool-test")
+    (in-package :cl-threadpool-test)
+    (run-tests)
+
+Run a specific test
+
+    (asdf:load-system "cl-threadpool-test")
+    (in-package :cl-threadpool-test)
+    (run-tests '(worker-thread-p-test-1))
+
+The thread pool has been tested on the following operating systems and Lisp implementations:
+
+* __MacOS 10.11.3 (El Capitan)__: SBCL, CCL, ABCL (Java 1.8)
+* __Windows 10__: SBCL, ABCL (Java 1.8)
+
+The `/script` directory contains a couple of shell scripts for running the test suite.
+
+Contact
+-------
+
+On any questions/bugs/feature requests create an issue or contact me: [Oliver](mailto:frechmatz@gmx.de)
+
+
+
 
