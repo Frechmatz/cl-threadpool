@@ -8,9 +8,6 @@ threads are picking jobs from the queue and execute them.
 Installation
 ------------
 
-Download cl-threadpool and add it to the asdf-system path. This step is required as long as
-cl-threadpool is not available via quicklisp.
-
 Install (downloads and installs all dependencies)
 
     (ql:quickload "cl-threadpool")
@@ -57,7 +54,7 @@ More detailed documentation is provided by the documentation strings of the func
     * __size__ Number of worker threads
     * __max-queue-size__ Maximum size of job queue
     * __name__  Name of the pool
-    * __resignal-job-conditions__ if true then conditions signalled by a worker will be resignalled as errors.
+    * __resignal-job-conditions__ if true then conditions signalled by a job will be resignalled as errors.
   
 * **start** (pool)
 
@@ -70,7 +67,7 @@ More detailed documentation is provided by the documentation strings of the func
 
 * **stop** (pool &key (force-destroy-timeout-seconds nil))
 
-   The function returns when all worker threads are no longer alive. A worker thread terminates
+   Stops the thread pool. The function returns when all worker threads are no longer alive. A worker thread terminates
 when no job is available and the thread pool is stopping.
 
     * __force-destroy-timeout-seconds__ An optional timeout in seconds after which all still alive
