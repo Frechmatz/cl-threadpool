@@ -128,6 +128,7 @@ The thread pool has been tested on the following operating systems and Lisp impl
 
 * __MacOS 10.11.3 (El Capitan)__: SBCL, CCL, ABCL (Java 1.8)
 * __Windows 10__: SBCL, ABCL (Java 1.8)
+* __MacOS 10.15.1 (Catalina)__: SBCL 2.0.2
 
 The `/script` directory contains a couple of shell scripts for running the test suite.
 
