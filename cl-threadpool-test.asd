@@ -18,6 +18,9 @@
 		 (:module "test"
 			  :serial t
 			  :components ((:file "packages")))
+		 (:module "test/util"
+			  :serial t
+			  :components ((:file "result-list")))
 		 (:module "test/threadpool"
 			  :serial t
 			  :components (
@@ -32,4 +35,5 @@
 				       (:file "pool-stop-processed-all-test")
 				       (:file "crashing-worker-test")
 				       (:file "pool-queue-length-test")
-				       (:file "force-destroy-test")))))
+				       (:file "force-destroy-test")
+				       (:file "lost-wakeup")))))

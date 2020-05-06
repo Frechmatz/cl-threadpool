@@ -319,5 +319,8 @@
      :cond-type threadpool-error-queue-capacity-exceeded)
     (queues:qpush (slot-value pool 'job-queue) job)
     (v:trace :cl-threadpool "Added job to queue of thread pool ~a" (slot-value pool 'name))
+    ;; All worker threads are waiting on pool cv. Once a thread has been
+    ;; notified it starts a loop of fetching and processing queued jobs.
+    ;; If the queue is empty, the thread again waits on pool cv.
     (bt:condition-notify (slot-value pool 'cv))))
 
