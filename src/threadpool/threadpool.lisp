@@ -64,6 +64,88 @@
     (find-if (lambda (cur-thread) (eq thread cur-thread)) (slot-value threadlist 'threads))))
 
 ;;
+;; Helper stuff for synchronous execution of jobs
+;;
+
+(defclass job-execution-error ()
+  ((message :initform "Job has signalled an error"))
+  (:documentation
+   "Instances of this class represent errors that have been signalled 
+    during the synchronous execution of a job"))
+
+(defmethod initialize-instance :after ((job-error job-execution-error) &key message)
+  (if message
+      (setf (slot-value job-error 'message) message)))
+
+(defun job-execution-error-p (obj)
+  "Returns t when obj represents an instance of job-execution-error."
+  (typep obj 'job-execution-error))
+
+(defun make-job-lock-pool ()
+  "Creates a pool that manages job locks.
+   Returns a property list with the following keys:
+   - :get A function that allocates a job lock. If there is no lock available 
+     a new one will be created. Locks returned by this function are supposed to be put back
+     into the pool.
+   - :put A function that puts back a previously allocated job lock into the pool.
+   A job lock is represented by a property list with the following keys:
+   - :set-value A function with one argument that sets the result of a job.
+   - :get-value A function that returns the result of a job. If the result is 
+     already available it will immediately be returned. Otherwise the function
+     blocks on the execution of the job."
+  (let ((pool-lock (bt:make-lock "job-lock-pool-lock")) (pool nil) (created-lock-count 0))
+    (flet ((make-job-lock ()
+	     (let ((job-lock (bt:make-lock "job-lock"))
+		   (job-cv (bt:make-condition-variable))
+		   (result nil)
+		   (state :pending))
+	       (list
+		:set-value (lambda(v)
+			     (bt:with-lock-held (job-lock)
+			       (setf result v)
+			       (setf state :set)
+			       (bt:condition-notify job-cv)))
+		:get-value (lambda()
+			     (bt:acquire-lock job-lock)
+			     (if (eq state :set)
+				 (progn
+				   (bt:release-lock job-lock)
+				   result)
+				 (progn
+				   ;; loop in order to handle spurious wakeups
+				   (loop
+				      (bt:condition-wait job-cv job-lock)
+				      (if (eq state :set)
+					  (return)))
+				   (bt:release-lock job-lock)
+				   result)))
+		:reset (lambda()
+			 (setf state :pending)
+			 (setf result nil))))))
+      (list
+       :get (lambda()
+	      "Return an available lock or create a new one."
+	      (bt:with-lock-held (pool-lock)
+		(let ((l (pop pool)))
+		  (if (not l)
+		      (progn
+			(setf created-lock-count (+ 1 created-lock-count))
+			(setf l (make-job-lock))))
+		  l)))
+       :put (lambda(job-lock)
+	      "Put a lock back into the pool."
+	      (bt:with-lock-held (pool-lock)
+		(funcall (getf job-lock :reset))
+		(push job-lock pool)
+		nil))
+       :length (lambda()
+		 (bt:with-lock-held (pool-lock)
+		   (length pool)))
+       :created-lock-count (lambda()
+		 (bt:with-lock-held (pool-lock)
+		   created-lock-count))))))
+
+;;
 ;; Thread pool
 ;;
 
@@ -71,6 +153,7 @@
   ((job-queue :initform (queues:make-queue :simple-queue))
    (max-queue-size :initform nil)
    (resignal-job-conditions :initform nil)
+   (job-lock-pool :initform (make-job-lock-pool))
    (threads :initform (make-instance 'threadlist :thread-name-prefix "Threadpool"))
    (size :initform nil :documentation "Number of worker threads")
    (name :initform "Threadpool")
@@ -175,7 +258,7 @@
 
 
 ;;
-;; Helper stuff
+;; Helper stuff for stopping a pool
 ;;
 
 (defmacro poll ((&key (timeout-seconds nil)) test-body timeout-body)
@@ -324,3 +407,49 @@
     ;; If the queue is empty, the thread again waits on pool cv.
     (bt:condition-notify (slot-value pool 'cv))))
 
+(defun run-jobs (pool jobs)
+  "Synchronously run a list of jobs and return their results. Blocks the current thread until 
+   all jobs have been completed. Conditions that are signalled during the execution 
+   of a job will not be re-signalled but be represented in the result list as instances 
+   of class job-execution-error.
+   - pool: The threadpool
+   - jobs: A list of jobs. Each job is represented by a function with no arguments.
+   Returns an ordered list of the values that the job functions have returned.
+   See also job-execution-error, job-execution-error-p"
+  (if (not (threadpoolp pool))
+      (error 'threadpool-error :text "pool is not an instance of threadpool"))
+  (if (not (listp jobs))
+      (error "jobs must be a list"))
+  (flet ((wrap-job (job job-lock)
+	   (lambda()
+	     (handler-case
+		 (funcall (getf job-lock :set-value) (funcall job))
+	       (condition (c)
+		 (declare (ignore c))
+		 (v:info
+		  :cl-threadpool
+		  (format nil "Synchronous job execution: Catched condition."))
+		 ;; For now no re-signalling of conditions.
+		 ;; Also do not set the condition as result of the job because
+		 ;; it may hold a huge context.
+		 ;; TODO Generate a useful message
+		 (funcall
+		  (getf job-lock :set-value)
+		  (make-instance 'job-execution-error :message nil)))))))
+    (let ((job-locks nil) (job-results nil))
+      ;; Wrap jobs and push them into the job queue
+      (dolist (job jobs)
+	(if (not (functionp job))
+	    (error "Job must be a function"))
+	(let* ((job-lock (funcall (getf (slot-value pool 'job-lock-pool) :get)))
+	       (wrapped-job (wrap-job job job-lock)))
+	  (push job-lock job-locks)
+	  (add-job pool wrapped-job)))
+      ;; Wait for completion of jobs
+      (dolist (job-lock job-locks)
+	(let ((result (funcall (getf job-lock :get-value))))
+	  (push result job-results)
+	  ;; put job-lock back into lock pool
+	  (funcall (getf (slot-value pool 'job-lock-pool) :put) job-lock)))
+      job-results)))
+    

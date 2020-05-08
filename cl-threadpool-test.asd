@@ -20,7 +20,8 @@
 			  :components ((:file "packages")))
 		 (:module "test/util"
 			  :serial t
-			  :components ((:file "result-list")))
+			  :components ((:file "result-list")
+				       (:file "list-to-array")))
 		 (:module "test/threadpool"
 			  :serial t
 			  :components (
@@ -36,4 +37,5 @@
 				       (:file "crashing-worker-test")
 				       (:file "pool-queue-length-test")
 				       (:file "force-destroy-test")
-				       (:file "lost-wakeup")))))
+				       (:file "lost-wakeup")
+				       (:file "run-jobs-sync")))))
