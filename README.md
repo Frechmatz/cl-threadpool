@@ -5,6 +5,13 @@ A Thread pool implemented in Common Lisp
 The thread pool consists of a fixed number of worker threads and a job queue. The worker
 threads are picking jobs from the queue and execute them. 
 
+Change-Log
+----------
+
+* The pool setting 'resignal-job-conditions' has been removed. Conditions signalled during
+  the execution of a job will always be re-signalled.
+
+
 Installation
 ------------
 
@@ -49,12 +56,11 @@ API
 
 More detailed documentation is provided by the documentation strings of the functions.
 
-* **make-threadpool** (size &key (name nil) (max-queue-size nil) (resignal-job-conditions nil))
+* **make-threadpool** (size &key (name nil) (max-queue-size nil))
 
     * __size__ Number of worker threads
     * __max-queue-size__ Maximum size of job queue
     * __name__  Name of the pool
-    * __resignal-job-conditions__ if true then conditions signalled by a job will be resignalled as errors.
   
 * **start** (pool)
 
@@ -63,7 +69,16 @@ More detailed documentation is provided by the documentation strings of the func
    See also **threadpool-error-queue-capacity-exceeded**
 
     * __pool__ a threadpool   
-    * __job__  a function with zero arguments that will be executed by a worker thread of the pool
+    * __job__  a function with zero arguments that will be executed by a worker thread of the pool. A Job is supposed to handle all conditions.
+
+* **run-jobs** (pool jobs)
+
+   Synchronously executes a list of jobs. The current thread will be blocked until all jobs have been executed. 
+
+    * __pool__ a threadpool   
+    * __jobs__  A list of jobs. Each job is represented by a function with zero arguments. A Job is supposed to handle all conditions.
+
+    Returns an ordered list of job results.
 
 * **stop** (pool &key (force-destroy-timeout-seconds nil))
 

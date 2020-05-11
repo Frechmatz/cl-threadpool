@@ -8,8 +8,6 @@
   (:export :worker-thread-p)
   (:export :threadpool-error)
   (:export :threadpool-error-queue-capacity-exceeded)
-  (:export :run-jobs)
-  (:export :job-execution-error)
-  (:export :job-execution-error-p))
+  (:export :run-jobs))
 
 

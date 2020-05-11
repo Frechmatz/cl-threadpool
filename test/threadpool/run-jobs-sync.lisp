@@ -87,23 +87,6 @@
       (assert-equal "Job 2" (second results))
       (assert-equal "Job 3" (third results)))))
 
-(define-test run-jobs-sync-error-handling ()
-  "Test error handling of synchronously executed of jobs"
-  (let ((pool (cl-threadpool:make-threadpool 2)))
-    (cl-threadpool:start pool)
-    (let ((results
-	   (cl-threadpool:run-jobs
-	    pool
-	    (list
-	     (lambda() (sleep 5) (error "Failed"))
-	     (lambda() (sleep 2) "Job 2")
-	     (lambda() (sleep 1) "Job 3")))))
-      (cl-threadpool:stop pool)
-      (assert-equal 3 (length results))
-      (assert-true (cl-threadpool:job-execution-error-p (first results)))
-      (assert-equal "Job 2" (second results))
-      (assert-equal "Job 3" (third results)))))
-
 (define-test run-jobs-sync-pressure-1 ()
   "Test synchronous execution of jobs with high pressure on the queue"
   (let ((pool (cl-threadpool:make-threadpool 5 :max-queue-size 2000)) (job-count 1000))
@@ -112,6 +95,22 @@
       (dotimes (i job-count)
 	(let ((job-result (format nil "job-result-~a" i)))
 	  (push (lambda() job-result) jobs)
+	  (setf (elt expected-job-results i) job-result)))
+      
+      (let ((results (list-to-array (cl-threadpool:run-jobs pool (reverse jobs)))))
+	(cl-threadpool:stop pool)
+	(dotimes (i job-count)
+	  (assert-equal (elt expected-job-results i) (elt results i)))))))
+
+(define-test run-jobs-sync-pressure-2 ()
+  "Test synchronous execution of jobs with high pressure on the queue"
+  (let ((pool (cl-threadpool:make-threadpool 2 :max-queue-size 20)) (job-count 10))
+    (cl-threadpool:start pool)
+    (let ((jobs nil) (expected-job-results (make-array job-count)))
+      (dotimes (i job-count)
+	(let ((job-result (format nil "job-result-~a" i)))
+	  ;; sleep, then returm result
+	  (push (lambda() (sleep 1) job-result) jobs)
 	  (setf (elt expected-job-results i) job-result)))
       
       (let ((results (list-to-array (cl-threadpool:run-jobs pool (reverse jobs)))))

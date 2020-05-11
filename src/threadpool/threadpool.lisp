@@ -67,20 +67,6 @@
 ;; Helper stuff for synchronous execution of jobs
 ;;
 
-(defclass job-execution-error ()
-  ((message :initform "Job has signalled an error"))
-  (:documentation
-   "Instances of this class represent errors that have been signalled 
-    during the synchronous execution of a job"))
-
-(defmethod initialize-instance :after ((job-error job-execution-error) &key message)
-  (if message
-      (setf (slot-value job-error 'message) message)))
-
-(defun job-execution-error-p (obj)
-  "Returns t when obj represents an instance of job-execution-error."
-  (typep obj 'job-execution-error))
-
 (defun make-job-lock-pool ()
   "Creates a pool that manages job locks.
    Returns a property list with the following keys:
@@ -152,7 +138,6 @@
 (defclass threadpool ()
   ((job-queue :initform (queues:make-queue :simple-queue))
    (max-queue-size :initform nil)
-   (resignal-job-conditions :initform nil)
    (job-lock-pool :initform (make-job-lock-pool))
    (threads :initform (make-instance 'threadlist :thread-name-prefix "Threadpool"))
    (size :initform nil :documentation "Number of worker threads")
@@ -165,9 +150,8 @@
    (cv :initform (bt:make-condition-variable))
    (cv-lock :initform (bt:make-lock "thread-pool-cv-lock"))))
 
-(defmethod initialize-instance :after ((pool threadpool) &key name size max-queue-size resignal-job-conditions) 
+(defmethod initialize-instance :after ((pool threadpool) &key name size max-queue-size) 
   (setf (slot-value pool 'name) (if name name (format nil "Threadpool-~a" (gensym))))
-  (setf (slot-value pool 'resignal-job-conditions) resignal-job-conditions)
   (setf (slot-value pool 'size) size)
   (setf (slot-value pool 'max-queue-size)
 	(if max-queue-size
@@ -207,8 +191,7 @@
 
 (defun make-worker-thread (pool)
   "Adds a worker thread to the pool."
-  (let ((thread-name (generate-thread-name (slot-value pool 'threads)))
-	(resignal-job-conditions (slot-value pool 'resignal-job-conditions)))
+  (let ((thread-name (generate-thread-name (slot-value pool 'threads))))
     (add-thread
      (slot-value pool 'threads)
      (bt:make-thread
@@ -236,15 +219,15 @@
 	       (loop
 		  (let ((job (get-job pool)))
 		    (if job
-			(handler-case
-			    (funcall job)
-			  (condition (c)
-			    (v:error
-			     :cl-threadpool
-			     "Job of worker thread ~a signalled a condition: ~a"
-			     thread-name c)
-			    (if resignal-job-conditions
-				(error c))))
+			(progn
+			  (handler-case
+			      (funcall job)
+			    (condition (c)
+			      (v:error
+			       :cl-threadpool
+			       "Job of worker thread ~a signalled a condition: ~a"
+			       thread-name c)
+			      (error c))))
 			(return))))))
 	  (v:info :cl-threadpool "Worker thread ~a has started." thread-name)
 	  (loop
@@ -295,18 +278,15 @@
 ;;
 ;;
 
-(defun make-threadpool (size &key (name nil) (max-queue-size nil) (resignal-job-conditions nil))
+(defun make-threadpool (size &key (name nil) (max-queue-size nil))
   "Create a thread pool.
    name -- Name of the pool.
    size -- Number of worker threads.
-   max-queue-size -- The maximum number of pending jobs
-   resignal-job-conditions -- if t then conditions signalled by the worker will be 
-   resignalled as errors"
+   max-queue-size -- The maximum number of pending jobs"
   (make-instance 'threadpool
 		 :name name
 		 :size size
-		 :max-queue-size max-queue-size
-		 :resignal-job-conditions resignal-job-conditions))
+		 :max-queue-size max-queue-size))
 
 (defun threadpoolp (obj)
   "Returns t if the given object represents a thread pool."
@@ -376,7 +356,7 @@
 (defun add-job (pool job)
   "Add a job to the pool. 
    pool -- A threadpool instance as created by make-threadpool.   
-   job -- A function with zero arguments.
+   job -- A function with zero arguments. A job is supposed to handle all conditions.
    * The pool must have been started.
    * The pool must not be in stopping state.
    * The pool must not be in stopped state."
@@ -409,33 +389,17 @@
 
 (defun run-jobs (pool jobs)
   "Synchronously run a list of jobs and return their results. Blocks the current thread until 
-   all jobs have been completed. Conditions that are signalled during the execution 
-   of a job will not be re-signalled but be represented in the result list as instances 
-   of class job-execution-error.
+   all jobs have been completed. Jobs are supposed to handle all conditions.
    - pool: The threadpool
    - jobs: A list of jobs. Each job is represented by a function with no arguments.
-   Returns an ordered list of the values that the job functions have returned.
-   See also job-execution-error, job-execution-error-p"
+   Returns an ordered list of the results that the jobs have returned."
   (if (not (threadpoolp pool))
       (error 'threadpool-error :text "pool is not an instance of threadpool"))
   (if (not (listp jobs))
       (error "jobs must be a list"))
   (flet ((wrap-job (job job-lock)
-	   (lambda()
-	     (handler-case
-		 (funcall (getf job-lock :set-value) (funcall job))
-	       (condition (c)
-		 (declare (ignore c))
-		 (v:info
-		  :cl-threadpool
-		  (format nil "Synchronous job execution: Catched condition."))
-		 ;; For now no re-signalling of conditions.
-		 ;; Also do not set the condition as result of the job because
-		 ;; it may hold a huge context.
-		 ;; TODO Generate a useful message
-		 (funcall
-		  (getf job-lock :set-value)
-		  (make-instance 'job-execution-error :message nil)))))))
+	     (lambda()
+	       (funcall (getf job-lock :set-value) (funcall job)))))
     (let ((job-locks nil) (job-results nil))
       ;; Wrap jobs and push them into the job queue
       (dolist (job jobs)
