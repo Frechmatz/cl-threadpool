@@ -68,14 +68,14 @@ More detailed documentation is provided by the documentation strings of the func
 
    See also **threadpool-error-queue-capacity-exceeded**
 
-    * __pool__ a threadpool   
-    * __job__  a function with zero arguments that will be executed by a worker thread of the pool. A Job is supposed to handle all conditions.
+    * __pool__ A threadpool   
+    * __job__  A function with zero arguments that will be executed by a worker thread of the pool. A Job is supposed to handle all conditions.
 
 * **run-jobs** (pool jobs)
 
    Synchronously executes a list of jobs. The current thread will be blocked until all jobs have been executed. 
 
-    * __pool__ a threadpool   
+    * __pool__ A threadpool   
     * __jobs__  A list of jobs. Each job is represented by a function with zero arguments. A Job is supposed to handle all conditions.
 
     Returns an ordered list of job results.
