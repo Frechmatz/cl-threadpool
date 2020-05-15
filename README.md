@@ -59,7 +59,7 @@ More detailed documentation is provided by the documentation strings of the func
 * **make-threadpool** (size &key (name nil) (max-queue-size nil))
 
     * __size__ Number of worker threads
-    * __max-queue-size__ Maximum size of job queue
+    * __max-queue-size__ Maximum size of job queue. The default value is 50. 
     * __name__  Name of the pool
   
 * **start** (pool)
@@ -144,6 +144,7 @@ The thread pool has been tested on the following operating systems and Lisp impl
 * __MacOS 10.11.3 (El Capitan)__: SBCL, CCL, ABCL (Java 1.8)
 * __Windows 10__: SBCL, ABCL (Java 1.8)
 * __MacOS 10.15.1 (Catalina)__: SBCL 2.0.2
+* __MacOS 10.15.1 (Catalina)__: ABCL 1.6.1 Java 1.8.0_252 AdoptOpenJDK
 
 The `/script` directory contains a couple of shell scripts for running the test suite.
 
