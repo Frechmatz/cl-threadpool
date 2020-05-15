@@ -156,7 +156,7 @@
   (setf (slot-value pool 'max-queue-size)
 	(if max-queue-size
 	    max-queue-size
-	    (* size 2)))
+	    50))
   (setf (slot-value (slot-value pool 'threads) 'thread-name-prefix) (slot-value pool 'name)))
 
 (defmacro with-pool-state-lock-held (pool state &body body)
