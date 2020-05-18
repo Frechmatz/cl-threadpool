@@ -52,7 +52,7 @@ Add a job. Propagation of job result is up to the job implementation.
 
     (cl-threadpool:add-job
        *threadpool*
-       (lambda () (sleep 5)))
+       (lambda () (sleep 5) "Job result"))
 
 Stop the pool
 
