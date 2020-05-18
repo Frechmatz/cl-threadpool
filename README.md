@@ -43,9 +43,9 @@ Run jobs. Blocks the current thread until all jobs have finished.
              (lambda() (sleep 5) "Job 1")
              (lambda() (sleep 2) "Job 2")
              (lambda() (sleep 1) "Job 3")))))
-      (format t "~a~%" (first results)) ;; => "Job 1"
-      (format t "~a~%" (second results)) ;; => "Job 2"
-      (format t "~a~%" (third results)) ;; => "Job 3"
+      (format t "~a" (first results)) ;; => "Job 1"
+      (format t "~a" (second results)) ;; => "Job 2"
+      (format t "~a" (third results)) ;; => "Job 3"
       ))
 	     
 Add a job. Propagation of job result is up to the job implementation.
