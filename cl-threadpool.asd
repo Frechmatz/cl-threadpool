@@ -8,8 +8,7 @@
   :description "Implementation of a thread pool"
   :long-description "Implementation of a thread pool"
   :depends-on (:bordeaux-threads
-	       :queues.simple-cqueue
-	       :verbose)
+	       :queues.simple-cqueue)
   :components ((:module "src/threadpool"
 			:serial t
 			:components ((:file "packages")

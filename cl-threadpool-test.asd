@@ -8,8 +8,7 @@
     :version "1.0.0"
     :homepage "https://github.com/Frechmatz/cl-threadpool"  
     :depends-on (:lisp-unit
-		 :bordeaux-threads
-		 :queues.simple-cqueue
+		 :cl-threadpool
 		 :verbose)
     :components ((:module "src/threadpool"
 			  :serial t
@@ -21,7 +20,8 @@
 		 (:module "test/util"
 			  :serial t
 			  :components ((:file "result-list")
-				       (:file "list-to-array")))
+				       (:file "list-to-array")
+				       (:file "logger")))
 		 (:module "test/threadpool"
 			  :serial t
 			  :components (

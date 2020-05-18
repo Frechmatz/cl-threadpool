@@ -1,5 +1,7 @@
 (in-package :cl-threadpool-test)
 
+(init-logger)
+
 (define-test worker-thread-p-test-1 ()
   ""
   (let ((pool (cl-threadpool:make-threadpool 5)))

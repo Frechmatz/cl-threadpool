@@ -1,5 +1,7 @@
 (in-package :cl-threadpool-test)
 
+(init-logger)
+
 (define-test pool-stop-instantiated-test-1 ()
   "Stop pool after it has been instantiated but not started"
   (let ((pool (cl-threadpool:make-threadpool 5)))

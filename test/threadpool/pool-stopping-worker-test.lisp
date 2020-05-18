@@ -1,6 +1,8 @@
 
 (in-package :cl-threadpool-test)
 
+(init-logger)
+
 (define-test pool-stopping-worker-thread ()
   "Test that pool cannot be stopped by a worker thread"
   (let ((pool (cl-threadpool:make-threadpool 5)))

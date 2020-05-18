@@ -1,13 +1,12 @@
 (in-package :cl-threadpool-test)
 
+(init-logger)
+
 (defun create-worker (name fn)
   (lambda ()
-    ;;(v:info :cl-threadpool (format nil "********** ~a: Doing something ***********" name))
     (funcall fn name)
     (sleep 3)
-    ;;(v:info :cl-threadpool (format nil "********** ~a: Doing something ***********" name))
-    (funcall fn name)
-    ))
+    (funcall fn name)))
   
 (define-test run-workers ()
   "Run some workers"

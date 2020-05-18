@@ -1,5 +1,6 @@
 (in-package :cl-threadpool-test)
 
+(init-logger)
 
 (define-test threadpoolp-test-1 ()
   ""

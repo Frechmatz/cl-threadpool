@@ -1,5 +1,7 @@
 (in-package :cl-threadpool-test)
 
+(init-logger)
+
 (define-test run-jobs-sync-simple ()
   "Test synchronous execution of jobs"
   (let ((pool (cl-threadpool:make-threadpool 2)))

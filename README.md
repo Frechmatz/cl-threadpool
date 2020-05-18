@@ -10,7 +10,7 @@ Change-Log
 
 * The pool setting 'resignal-job-conditions' has been removed. Conditions signalled during
   the execution of a job will always be re-signalled.
-
+* Removed dependency 'verbose'.
 
 Installation
 ------------
@@ -111,15 +111,8 @@ Condition-Types
 Logging
 -------
 
-The thread pool uses the [Verbose](https://github.com/Shinmera/verbose) framework for logging.
-
-Disable logging of the cl-threadpool package
-
-    (setf (v:repl-categories) (v:remove-repl-category (list :cl-threadpool)))
-
-Set logging level (globally)
-
-    (setf (v:repl-level) :error)
+The threadpool logs low-level events by calling the function cl-threadpool:*logger*
+The default implementation of this function is empty.
 
 Running the tests
 -----------------

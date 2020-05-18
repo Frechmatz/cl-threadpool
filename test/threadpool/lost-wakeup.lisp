@@ -1,6 +1,6 @@
 (in-package :cl-threadpool-test)
 
-
+(init-logger)
 
 (define-test lost-wakeup-1 ()
   "Test that worker-threads are polling the job queue"
@@ -10,13 +10,19 @@
     (cl-threadpool:add-job
      pool
      (lambda ()
-       (v:info :cl-threadpool (format nil "Job 1 is running"))
+       (cl-threadpool::write-log
+	:info
+	:cl-threadpool
+	"Job 1 is running")
        (sleep 10)
        (funcall (getf results :add) "Job 1")))
     (cl-threadpool:add-job
      pool
      (lambda ()
-       (v:info :cl-threadpool (format nil "Job 2 is running"))
+       (cl-threadpool::write-log
+	:info
+	:cl-threadpool
+	"Job 2 is running")
        (sleep 10)
        (funcall (getf results :add) "Job 2")))
     (sleep 2)
@@ -28,7 +34,10 @@
     (cl-threadpool:add-job
      pool
      (lambda ()
-       (v:info :cl-threadpool (format nil "Job 3 is running"))
+       (cl-threadpool::write-log
+	:info
+	:cl-threadpool
+	"Job 3 is running")
        (sleep 5)
        (funcall (getf results :add) "Job 3")))
     (sleep 20)

@@ -5,6 +5,14 @@
 
 (in-package :cl-threadpool)
 
+(defparameter *logger*
+  (lambda(level who format-control format-arguments)
+    (declare (ignore level who format-control format-arguments))
+    nil))
+
+(defun write-log (level who format-control &key (format-arguments nil))
+  (funcall *logger* level who format-control format-arguments))
+
 (define-condition threadpool-error (error)
   ((text :initarg :text :reader text))
   (:documentation "The default condition that is signalled by thread pools"))
@@ -182,7 +190,11 @@
 (defun destroy-all (pool)
   "Destroy all threads that haven't exited yet."
   (with-threads (slot-value pool 'threads) thread
-    (v:info :cl-threadpool "Destroying thread ~a" (bt:thread-name thread))
+    (write-log
+     :info
+     :cl-threadpool
+     "Destroying thread ~a"
+     :format-arguments (list (bt:thread-name thread)))
     (bt:destroy-thread thread)))
 
 (defun all-threads-stopped-p (pool) 
@@ -209,7 +221,11 @@
 		(slot-value pool 'cv-lock))
 	       ;; Unlock (we do not need the lock for further processing)
 	       (bt:release-lock (slot-value pool 'cv-lock))
-	       (v:trace :cl-threadpool "Worker thread ~a has been woken up" thread-name))
+	       (write-log
+		:trace
+		:cl-threadpool
+		"Worker thread ~a has been woken up"
+		:format-arguments (list thread-name)))
 	     (is-quit ()
 	       "Returns true when pool is stopping and the thread shall exit"
 	       (with-pool-state-lock-held pool state
@@ -223,19 +239,28 @@
 			  (handler-case
 			      (funcall job)
 			    (condition (c)
-			      (v:error
+			      (write-log
+			       :error
 			       :cl-threadpool
 			       "Job of worker thread ~a signalled a condition: ~a"
-			       thread-name c)
+			       :format-arguments (list thread-name c))
 			      (error c))))
 			(return))))))
-	  (v:info :cl-threadpool "Worker thread ~a has started." thread-name)
+	  (write-log
+	   :info
+	   :cl-threadpool
+	   "Worker thread ~a has started."
+	   :format-arguments (list thread-name))
 	  (loop
 	     (wait)
 	     (process)
 	     (if (is-quit)
 		 (return)))
-	  (v:info :cl-threadpool "Worker thread ~a has stopped." thread-name)))
+	  (write-log
+	   :info
+	   :cl-threadpool
+	   "Worker thread ~a has stopped."
+	   :format-arguments (list thread-name))))
       :name thread-name))
     nil))
 
@@ -301,21 +326,23 @@
 (defun start (pool)
   "Start the thread pool.
    pool -- A thread pool instance created by make-threadpool."
-  ;; set global logging level
-  ;;(setf (v:repl-level) :error)
-  ;; disable logging
-  ;;(setf (v:repl-categories) (v:remove-repl-category (list :cl-threadpool)))
   (if (not (threadpoolp pool))
       (error 'threadpool-error :text "Not an instance of threadpool"))
   (with-pool-state-lock-held pool s
     (signal-pool-error-if (lambda() s) pool "Thread pool can only be started once")
-    (v:info :cl-threadpool "Starting thread pool ~a..." (slot-value pool 'name))
+    (write-log
+     :info
+     :cl-threadpool
+     "Starting thread pool ~a..."
+     :format-arguments (list (slot-value pool 'name)))
     (dotimes (i (slot-value pool 'size))
       (make-worker-thread pool))
     (setf (slot-value pool 'state) :running)
-    (v:info :cl-threadpool
-	    "Thread pool ~a has been started"
-	    (slot-value pool 'name))))
+    (write-log
+     :info
+     :cl-threadpool
+     "Thread pool ~a has been started"
+     :format-arguments (list (slot-value pool 'name)))))
 
 (defun stop (pool &key (force-destroy-timeout-seconds nil))
   "Stop the thread pool.
@@ -337,21 +364,31 @@
 	(setf (slot-value pool 'state) :stopping)
 	t) ;;; not stopped: return t
       (poll (:timeout-seconds force-destroy-timeout-seconds)
-	(progn
-	  (v:info :cl-threadpool
-		  "Stopping thread pool ~a..."
-		  (slot-value pool 'name))
-	  (notify-all pool)
-	  (sleep 1)
-	  (all-threads-stopped-p pool))
-	(progn
-	  (v:info :cl-threadpool
-		  "Stopping thread pool ~a: Timeout reached. Destroying threads..."
-		  (slot-value pool 'name))
-	  (destroy-all pool))))
+	    (progn
+	      (write-log
+	       :info
+	       :cl-threadpool
+	       "Stopping thread pool ~a..."
+	       :format-arguments (list (slot-value pool 'name)))
+	      (notify-all pool)
+	      (sleep 1)
+	      (all-threads-stopped-p pool))
+	    (progn
+	      (write-log
+	       :info
+	       :cl-threadpool
+	       "Stopping thread pool ~a: Timeout reached. Destroying threads..."
+	       :format-arguments (list (slot-value pool 'name)))
+	      (destroy-all pool))))
   (with-pool-state-lock-held pool s
     (setf s :stopped))
-  (v:info :cl-threadpool "Thread pool ~a has stopped" (slot-value pool 'name)))
+
+
+  (write-log
+   :info
+   :cl-threadpool
+   "Thread pool ~a has stopped"
+   :format-arguments (list (slot-value pool 'name))))
   
 (defun add-job (pool job)
   "Add a job to the pool. 
@@ -381,7 +418,11 @@
      "Maximum job queue length reached"
      :cond-type threadpool-error-queue-capacity-exceeded)
     (queues:qpush (slot-value pool 'job-queue) job)
-    (v:trace :cl-threadpool "Added job to queue of thread pool ~a" (slot-value pool 'name))
+    (write-log
+     :trace
+     :cl-threadpool
+     "Added job to queue of thread pool ~a"
+     :format-arguments (list (slot-value pool 'name)))
     ;; All worker threads are waiting on pool cv. Once a thread has been
     ;; notified it starts a loop of fetching and processing queued jobs.
     ;; If the queue is empty, the thread again waits on pool cv.

@@ -1,5 +1,7 @@
 (in-package :cl-threadpool-test)
 
+(init-logger)
+
 (define-test pool-add-job-test-1 ()
   "Add job to pool that hasn't been started"
   (let ((pool (cl-threadpool:make-threadpool 5)))

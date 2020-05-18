@@ -1,5 +1,7 @@
 (in-package :cl-threadpool-test)
 
+(init-logger)
+
 (define-test pool-start-twice-test ()
   "Start pool twice"
   (let ((pool (cl-threadpool:make-threadpool 5)))

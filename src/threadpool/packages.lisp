@@ -8,6 +8,7 @@
   (:export :worker-thread-p)
   (:export :threadpool-error)
   (:export :threadpool-error-queue-capacity-exceeded)
-  (:export :run-jobs))
+  (:export :run-jobs)
+  (:export :*logger*))
 
 

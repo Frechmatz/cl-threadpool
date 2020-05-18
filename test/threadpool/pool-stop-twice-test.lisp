@@ -1,6 +1,8 @@
 
 (in-package :cl-threadpool-test)
 
+(init-logger)
+
 (define-test pool-stop-twice-test-1 ()
   "Nested pool stopping (this is allowed)."
   (let ((pool (cl-threadpool:make-threadpool 5)))

@@ -1,5 +1,7 @@
 (in-package :cl-threadpool-test)
 
+(init-logger)
+
 (define-test job-dispatch-run-jobs-sync-1 ()
   "Test that jobs are dispatched to all available worker threads"
   (let ((pool (cl-threadpool:make-threadpool 3)))
@@ -27,19 +29,28 @@
     (cl-threadpool:add-job
      pool
      (lambda ()
-       (v:info :cl-threadpool (format nil "Job 1 is running"))
+       (cl-threadpool::write-log
+	:info
+	:cl-threadpool
+	"Job 1 is running")
        (sleep 10)
        (funcall (getf results :add) (bt:thread-name (bt:current-thread)))))
     (cl-threadpool:add-job
      pool
      (lambda ()
-       (v:info :cl-threadpool (format nil "Job 2 is running"))
+       (cl-threadpool::write-log
+	:info
+	:cl-threadpool
+	"Job 2 is running")
        (sleep 10)
        (funcall (getf results :add) (bt:thread-name (bt:current-thread)))))
     (cl-threadpool:add-job
      pool
      (lambda ()
-       (v:info :cl-threadpool (format nil "Job 3 is running"))
+       (cl-threadpool::write-log
+	:info
+	:cl-threadpool
+	"Job 3 is running")
        (sleep 10)
        (funcall (getf results :add) (bt:thread-name (bt:current-thread)))))
     (cl-threadpool:stop pool)

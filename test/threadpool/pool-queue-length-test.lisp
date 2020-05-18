@@ -1,5 +1,7 @@
 (in-package :cl-threadpool-test)
 
+(init-logger)
+
 (define-test pool-queue-length-test-1 ()
   ""
   (let ((pool (cl-threadpool:make-threadpool 1 :max-queue-size 3)))
