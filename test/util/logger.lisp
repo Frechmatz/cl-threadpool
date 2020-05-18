@@ -12,6 +12,10 @@
 		  (cond
 		    ((eq level :info)
 		     (v:info who msg))
+		    ((eq level :debug)
+		     (v:debug who msg))
+		    ((eq level :warn)
+		     (v:warn who msg))
 		    ((eq level :error)
 		     (v:error who msg))
 		    ((eq level :trace)
