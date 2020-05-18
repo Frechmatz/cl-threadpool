@@ -19,28 +19,36 @@ Install (downloads and installs all dependencies)
 
     (ql:quickload "cl-threadpool")
 
-Dependencies:
-
-* [bordeaux-threads](https://github.com/sionescu/bordeaux-threads) 
-* [queues](https://github.com/oconnore/queues)
-* [verbose](https://github.com/Shinmera/verbose)
-
 Example
 -------
 
-Load cl-threadpool
+Load cl-threadpool.
 
     (asdf:load-system "cl-threadpool")
 
-Create a thread pool with 5 worker threads
+Create a thread pool with 5 worker threads and a queue size of 50.
 
-    (defparameter *threadpool* (cl-threadpool:make-threadpool 5))
+    (defparameter *threadpool* (cl-threadpool:make-threadpool 5 :max-queue-size 50))
 
-Start the pool
+Start the pool.
 
     (cl-threadpool:start *threadpool*)
 
-Add a job
+Run jobs. Blocks the current thread until all jobs have finished.
+
+    (let ((results
+           (cl-threadpool:run-jobs
+            pool
+            (list
+             (lambda() (sleep 5) "Job 1")
+             (lambda() (sleep 2) "Job 2")
+             (lambda() (sleep 1) "Job 3")))))
+      (format t "~a~%" (first results)) ;; => "Job 1"
+      (format t "~a~%" (second results)) ;; => "Job 2"
+      (format t "~a~%" (third results)) ;; => "Job 3"
+      ))
+	     
+Add a job. Propagation of job result is up to the job implementation.
 
     (cl-threadpool:add-job
        *threadpool*
@@ -117,20 +125,10 @@ The default implementation of this function is empty.
 Running the tests
 -----------------
 
-The tests are using the [lisp-unit](https://github.com/OdonataResearchLLC/lisp-unit) framework.
-The system definition file is cl-threadpool-test.asd.
-
-Run all tests
-
     (asdf:load-system "cl-threadpool-test")
     (in-package :cl-threadpool-test)
     (run-tests)
 
-Run a specific test
-
-    (asdf:load-system "cl-threadpool-test")
-    (in-package :cl-threadpool-test)
-    (run-tests '(worker-thread-p-test-1))
 
 The thread pool has been tested on the following operating systems and Lisp implementations:
 
