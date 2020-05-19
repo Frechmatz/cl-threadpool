@@ -12,7 +12,7 @@
 		 (sleep 1)
 		 (add-result "RESULT"))))
 	;; one worker thread
-	(let ((pool (cl-threadpool:make-threadpool 1 :max-queue-size 10)))
+	(let ((pool (cl-threadpool:make-threadpool 1)))
 	  (cl-threadpool:start pool)
 	  (cl-threadpool:add-job pool (create-worker))
 	  (cl-threadpool:add-job pool (create-worker))

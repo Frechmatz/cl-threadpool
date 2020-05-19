@@ -8,9 +8,14 @@ threads are picking jobs from the queue and execute them.
 Change-Log
 ----------
 
-* The pool setting 'resignal-job-conditions' has been removed. Conditions signalled during
-  the execution of a job will always be re-signalled.
+* Added run-jobs (pool, jobs) for synchronous execution of jobs.
+* Removed :resignal-job-conditions argument from threadpool. The pool no longer
+  handles conditions signalled by a job.
 * Removed dependency 'verbose'.
+* Removed :max-queue-size argument from threadpool. The size of the job
+  queue is now unlimited.
+* Removed condition threadpool-error-queue-capacity-exceeded.
+* Added queue-size (pool) to get the number of jobs waiting for execution.
 
 Installation
 ------------
@@ -26,9 +31,9 @@ Load cl-threadpool.
 
     (asdf:load-system "cl-threadpool")
 
-Create a thread pool with 5 worker threads and a queue size of 50.
+Create a thread pool with 5 worker threads.
 
-    (defparameter *threadpool* (cl-threadpool:make-threadpool 5 :max-queue-size 50))
+    (defparameter *threadpool* (cl-threadpool:make-threadpool 5))
 
 Start the pool.
 
@@ -62,19 +67,14 @@ Stop the pool
 API
 ---
 
-More detailed documentation is provided by the documentation strings of the functions.
-
-* **make-threadpool** (size &key (name nil) (max-queue-size nil))
+* **make-threadpool** (size &key (name nil))
 
     * __size__ Number of worker threads
-    * __max-queue-size__ Maximum size of job queue. The default value is 50. 
     * __name__  Name of the pool
   
 * **start** (pool)
 
 * **add-job** (pool job)
-
-   See also **threadpool-error-queue-capacity-exceeded**
 
     * __pool__ A threadpool   
     * __job__  A function with zero arguments that will be executed by a worker thread of the pool. A Job is supposed to handle all conditions.
@@ -104,17 +104,17 @@ pool threads will be destroyed.
 
    Returns t if the current thread is a worker thread of the pool.
 
+* **queue-size** (pool)
+
+   Returns the number of jobs waiting for execution.
+  
+
 Condition-Types
 ---------------
 
 * **threadpool-error** (error)
 
    The default condition that is signalled by the pool in any case of pool thread usage related errors.
-
-* **threadpool-error-queue-capacity-exceeded** (error)
-
-   This condition is signalled when the capacity of the job queue is being exceeded when adding a job.
-
 
 Logging
 -------

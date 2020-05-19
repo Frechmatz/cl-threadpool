@@ -17,11 +17,6 @@
   ((text :initarg :text :reader text))
   (:documentation "The default condition that is signalled by thread pools"))
 
-(define-condition threadpool-error-queue-capacity-exceeded (error)
-  ((text :initarg :text :reader text))
-  (:documentation "This condition is signalled when a job could not be added to the pool
-   because the maximum number of pending jobs was reached"))
-
 ;;
 ;; Thread list
 ;;
@@ -145,7 +140,6 @@
 
 (defclass threadpool ()
   ((job-queue :initform (queues:make-queue :simple-queue))
-   (max-queue-size :initform nil)
    (job-lock-pool :initform (make-job-lock-pool))
    (threads :initform (make-instance 'threadlist :thread-name-prefix "Threadpool"))
    (size :initform nil :documentation "Number of worker threads")
@@ -158,13 +152,9 @@
    (cv :initform (bt:make-condition-variable))
    (cv-lock :initform (bt:make-lock "thread-pool-cv-lock"))))
 
-(defmethod initialize-instance :after ((pool threadpool) &key name size max-queue-size) 
+(defmethod initialize-instance :after ((pool threadpool) &key name size) 
   (setf (slot-value pool 'name) (if name name (format nil "Threadpool-~a" (gensym))))
   (setf (slot-value pool 'size) size)
-  (setf (slot-value pool 'max-queue-size)
-	(if max-queue-size
-	    max-queue-size
-	    50))
   (setf (slot-value (slot-value pool 'threads) 'thread-name-prefix) (slot-value pool 'name)))
 
 (defmacro with-pool-state-lock-held (pool state &body body)
@@ -176,6 +166,13 @@
   "Get a job of the job queue. Returns nil if no job is available"
   (bt:with-lock-held ((slot-value pool 'state-lock))
     (queues:qpop (slot-value pool 'job-queue))))
+
+(defun queue-size (pool)
+  "Get the current length of the job queue."
+  (if (not (threadpoolp pool))
+      (error 'threadpool-error :text "Not an instance of threadpool"))
+  (bt:with-lock-held ((slot-value pool 'state-lock))
+    (queues:qsize (slot-value pool 'job-queue))))
 
 (defmacro signal-pool-error-if (predicate pool error-message &key (cond-type 'threadpool-error))
   `(if (funcall ,predicate)
@@ -303,15 +300,13 @@
 ;;
 ;;
 
-(defun make-threadpool (size &key (name nil) (max-queue-size nil))
+(defun make-threadpool (size &key (name nil))
   "Create a thread pool.
    name -- Name of the pool.
-   size -- Number of worker threads.
-   max-queue-size -- The maximum number of pending jobs"
+   size -- Number of worker threads."
   (make-instance 'threadpool
 		 :name name
-		 :size size
-		 :max-queue-size max-queue-size))
+		 :size size))
 
 (defun threadpoolp (obj)
   "Returns t if the given object represents a thread pool."
@@ -412,11 +407,6 @@
      (lambda () (eq s :stopped))
      pool
      "Cannot add job to stopped thread pool")
-    (signal-pool-error-if
-     (lambda () (> (queues:qsize (slot-value pool 'job-queue)) (slot-value pool 'max-queue-size)))
-     pool
-     "Maximum job queue length reached"
-     :cond-type threadpool-error-queue-capacity-exceeded)
     (queues:qpush (slot-value pool 'job-queue) job)
     (write-log
      :trace

@@ -91,7 +91,7 @@
 
 (define-test run-jobs-sync-pressure-1 ()
   "Test synchronous execution of jobs with high pressure on the queue"
-  (let ((pool (cl-threadpool:make-threadpool 5 :max-queue-size 2000)) (job-count 1000))
+  (let ((pool (cl-threadpool:make-threadpool 5)) (job-count 1000))
     (cl-threadpool:start pool)
     (let ((jobs nil) (expected-job-results (make-array job-count)))
       (dotimes (i job-count)
@@ -106,7 +106,7 @@
 
 (define-test run-jobs-sync-pressure-2 ()
   "Test synchronous execution of jobs with high pressure on the queue"
-  (let ((pool (cl-threadpool:make-threadpool 2 :max-queue-size 20)) (job-count 10))
+  (let ((pool (cl-threadpool:make-threadpool 2)) (job-count 10))
     (cl-threadpool:start pool)
     (let ((jobs nil) (expected-job-results (make-array job-count)))
       (dotimes (i job-count)
