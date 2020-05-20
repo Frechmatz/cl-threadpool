@@ -198,7 +198,7 @@
   "Returns t if all threads are stopped."
   (eq 0 (thread-count (slot-value pool 'threads))))
 
-(defun make-worker-thread (pool)
+(defun add-worker-thread (pool)
   "Adds a worker thread to the pool."
   (let ((thread-name (generate-thread-name (slot-value pool 'threads))))
     (add-thread
@@ -331,7 +331,7 @@
      "Starting thread pool ~a..."
      :format-arguments (list (slot-value pool 'name)))
     (dotimes (i (slot-value pool 'size))
-      (make-worker-thread pool))
+      (add-worker-thread pool))
     (setf (slot-value pool 'state) :running)
     (write-log
      :info
