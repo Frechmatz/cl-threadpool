@@ -133,7 +133,7 @@ Running the tests
 Supported Lisp implementations and operating systems
 ----------------------------------------------------
 
-Basically, cl-threadpool should work fine on all systems that are supported by the ``bordeaux-threads`` package. 
+Basically cl-threadpool should work fine on all systems that are supported by the ``bordeaux-threads`` package. 
 
 cl-threadpool has been tested with:
 
