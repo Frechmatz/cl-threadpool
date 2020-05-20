@@ -138,8 +138,6 @@ The thread pool has been tested on the following operating systems and Lisp impl
 * __MacOS 10.15.1 (Catalina)__: SBCL 2.0.2
 * __MacOS 10.15.1 (Catalina)__: ABCL 1.6.1 Java 1.8.0_252 AdoptOpenJDK
 
-The `/script` directory contains a couple of shell scripts for running the test suite.
-
 
 Contact
 -------
