@@ -120,7 +120,7 @@ Condition-Types
 Logging
 -------
 
-The threadpool logs low-level events by calling the function cl-threadpool:*logger*
+The threadpool logs low-level events by calling the function ``cl-threadpool:*logger*``
 The default implementation of this function is empty.
 
 Running the tests
