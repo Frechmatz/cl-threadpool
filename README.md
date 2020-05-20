@@ -130,8 +130,12 @@ Running the tests
     (in-package :cl-threadpool-test)
     (run-tests)
 
+Supported Lisp implementations and operating systems
+----------------------------------------------------
 
-The thread pool has been tested on the following operating systems and Lisp implementations:
+Basically, cl-threadpool should work fine on all systems that are supported by the ``bordeaux-threads`` package. 
+
+cl-threadpool has been tested with:
 
 * __MacOS 10.11.3 (El Capitan)__: SBCL, CCL, ABCL (Java 1.8)
 * __Windows 10__: SBCL, ABCL (Java 1.8)
