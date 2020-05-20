@@ -1,0 +1,4 @@
+;;; Initialize quicklisp (copied from .sbclrc)
+(let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname))))
+  (when (probe-file quicklisp-init)
+    (load quicklisp-init)))
