@@ -43,7 +43,7 @@ Run some jobs. Blocks the current thread until all jobs have finished.
 
     (let ((results
            (cl-threadpool:run-jobs
-            pool
+            *threadpool*
             (list
              (lambda() (sleep 5) "Job 1")
              (lambda() (sleep 2) "Job 2")
