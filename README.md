@@ -39,7 +39,7 @@ Start the pool.
 
     (cl-threadpool:start *threadpool*)
 
-Run jobs. Blocks the current thread until all jobs have finished.
+Run some jobs. Blocks the current thread until all jobs have finished.
 
     (let ((results
            (cl-threadpool:run-jobs
@@ -50,14 +50,7 @@ Run jobs. Blocks the current thread until all jobs have finished.
              (lambda() (sleep 1) "Job 3")))))
       (format t "~a" (first results)) ;; => "Job 1"
       (format t "~a" (second results)) ;; => "Job 2"
-      (format t "~a" (third results)) ;; => "Job 3"
-      ))
-	     
-Add a job. Propagation of job result is up to the job implementation.
-
-    (cl-threadpool:add-job
-       *threadpool*
-       (lambda () (sleep 5) "Job result"))
+      (format t "~a" (third results)))) ;; => "Job 3"
 
 Stop the pool
 
@@ -71,13 +64,21 @@ API
 
     * __size__ Number of worker threads
     * __name__  Name of the pool
-  
+
+    Returns an object representing a threadpool.
+    
 * **start** (pool)
+
+    Starts the given pool by instantiating the worker threads.
 
 * **add-job** (pool job)
 
+    Adds a job to the queue. 
+
     * __pool__ A threadpool   
     * __job__  A function with zero arguments that will be executed by a worker thread of the pool. A Job is supposed to handle all conditions.
+
+   Returns nil.
 
 * **run-jobs** (pool jobs)
 
