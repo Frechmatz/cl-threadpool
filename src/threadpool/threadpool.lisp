@@ -447,6 +447,6 @@
 	  (push result job-results)
 	  ;; put job-lock back into lock pool
 	  (funcall (getf (slot-value pool 'job-lock-pool) :put) job-lock)))
-      ;; Why no reverse of the results? Because job results have already fetched in reverse order.
+      ;; Why no reverse of the results? Because job results have already been fetched in reverse order.
       job-results)))
     
