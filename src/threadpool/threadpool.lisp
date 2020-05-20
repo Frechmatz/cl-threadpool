@@ -416,7 +416,8 @@
     ;; All worker threads are waiting on pool cv. Once a thread has been
     ;; notified it starts a loop of fetching and processing queued jobs.
     ;; If the queue is empty, the thread again waits on pool cv.
-    (bt:condition-notify (slot-value pool 'cv))))
+    (bt:condition-notify (slot-value pool 'cv))
+    nil))
 
 (defun run-jobs (pool jobs)
   "Synchronously run a list of jobs and return their results. Blocks the current thread until 
