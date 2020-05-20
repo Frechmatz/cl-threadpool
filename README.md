@@ -9,7 +9,7 @@ Change-Log
 ----------
 
 * Version 1.0.0 (current quicklisp release)
-* Version 2.0.0
+* Version 2.0.0 (work in progress)
     * Added run-jobs (pool, jobs) for synchronous execution of jobs.
     * Removed :resignal-job-conditions argument from threadpool. The pool no longer handles conditions signalled by a job.
     * Removed dependency 'verbose'.
