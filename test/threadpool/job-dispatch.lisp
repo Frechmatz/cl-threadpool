@@ -4,7 +4,7 @@
 
 (define-test job-dispatch-run-jobs-sync-1 ()
   "Test that jobs are dispatched to all available worker threads"
-  (let ((pool (cl-threadpool:make-threadpool 3)))
+  (let ((pool (cl-threadpool:make-threadpool 3 :name "job-dispatch-run-jobs-sync-1" )))
     (cl-threadpool:start pool)
     (let ((results
 	   (cl-threadpool:run-jobs
@@ -23,7 +23,7 @@
 
 (define-test job-dispatch-run-jobs-async-1 ()
   "Test that jobs are dispatched to all available worker threads"
-  (let ((pool (cl-threadpool:make-threadpool 3))
+  (let ((pool (cl-threadpool:make-threadpool 3 :name "job-dispatch-run-jobs-async-1"))
 	(results (make-result-list)))
     (cl-threadpool:start pool)
     (cl-threadpool:add-job

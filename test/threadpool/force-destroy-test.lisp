@@ -4,7 +4,7 @@
 
 (define-test force-destroy-test-1 ()
   "Test will not return when thread won't be force destroyed"
-  (let ((pool (cl-threadpool:make-threadpool 5)))
+  (let ((pool (cl-threadpool:make-threadpool 5 :name "force-destroy-test-1")))
     (cl-threadpool:start pool)
     (cl-threadpool:add-job
      pool

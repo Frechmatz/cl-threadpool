@@ -1,7 +1,7 @@
 (in-package :cl-threadpool-test)
 
 (define-test queue-size-test-1 ()
-  (let ((pool (cl-threadpool:make-threadpool 1)))
+  (let ((pool (cl-threadpool:make-threadpool 1 :name "queue-size-test-1")))
     (cl-threadpool:start pool)
     (let ((results
 	   (cl-threadpool:run-jobs

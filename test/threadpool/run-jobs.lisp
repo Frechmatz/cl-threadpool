@@ -13,7 +13,7 @@
   (let ((result-lock (bt:make-lock)) (result nil))
     (flet ((add-result (r)
 	     (bt:with-lock-held (result-lock) (push r result))))
-      (let ((pool (cl-threadpool:make-threadpool 5)))
+      (let ((pool (cl-threadpool:make-threadpool 5 :name "run-workers")))
 	(cl-threadpool:start pool)
 	(cl-threadpool:add-job pool (create-worker "Job 1" #'add-result))
 	(cl-threadpool:add-job pool (create-worker "Job 2" #'add-result))
@@ -25,7 +25,7 @@
 
 (define-test run-workers-one-thread ()
   "Test processing of jobs with one worker thread"
-  (let ((pool (cl-threadpool:make-threadpool 1)) (result nil))
+  (let ((pool (cl-threadpool:make-threadpool 1 :name "run-workers-one-thread")) (result nil))
     (cl-threadpool:start pool)
     (cl-threadpool:add-job
      pool

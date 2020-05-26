@@ -5,7 +5,7 @@
 
 (define-test pool-stop-twice-test-1 ()
   "Nested pool stopping (this is allowed)."
-  (let ((pool (cl-threadpool:make-threadpool 5)))
+  (let ((pool (cl-threadpool:make-threadpool 5 :name "pool-stop-twice-test-1")))
     (cl-threadpool:start pool)
     (cl-threadpool:add-job
      pool

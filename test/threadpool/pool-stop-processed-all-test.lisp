@@ -12,7 +12,7 @@
 		 (sleep 1)
 		 (add-result "RESULT"))))
 	;; one worker thread
-	(let ((pool (cl-threadpool:make-threadpool 1)))
+	(let ((pool (cl-threadpool:make-threadpool 1 :name "pool-stop-processed-all-1-test")))
 	  (cl-threadpool:start pool)
 	  (cl-threadpool:add-job pool (create-worker))
 	  (cl-threadpool:add-job pool (create-worker))

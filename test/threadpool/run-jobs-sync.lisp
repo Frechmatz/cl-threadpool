@@ -4,7 +4,7 @@
 
 (define-test run-jobs-sync-simple ()
   "Test synchronous execution of jobs"
-  (let ((pool (cl-threadpool:make-threadpool 2)))
+  (let ((pool (cl-threadpool:make-threadpool 2 :name "run-jobs-sync-simple")))
     (cl-threadpool:start pool)
     (let ((results
 	   (cl-threadpool:run-jobs
@@ -21,7 +21,7 @@
 
 (define-test run-jobs-sync-pool-management ()
   "Test management of job-locks"
-  (let ((pool (cl-threadpool:make-threadpool 2)))
+  (let ((pool (cl-threadpool:make-threadpool 2 :name "run-jobs-sync-pool-management")))
     (cl-threadpool:start pool)
     (let ((results
 	   (cl-threadpool:run-jobs
@@ -57,7 +57,7 @@
 
 (define-test run-jobs-sync-many-threads ()
   "Test synchronous execution of jobs"
-  (let ((pool (cl-threadpool:make-threadpool 10)))
+  (let ((pool (cl-threadpool:make-threadpool 10 :name "run-jobs-sync-many-threads")))
     (cl-threadpool:start pool)
     (let ((results
 	   (cl-threadpool:run-jobs
@@ -74,7 +74,7 @@
 
 (define-test run-jobs-sync-few-threads ()
   "Test synchronous execution of jobs"
-  (let ((pool (cl-threadpool:make-threadpool 1)))
+  (let ((pool (cl-threadpool:make-threadpool 1 :name "run-jobs-sync-few-threads")))
     (cl-threadpool:start pool)
     (let ((results
 	   (cl-threadpool:run-jobs
@@ -91,7 +91,7 @@
 
 (define-test run-jobs-sync-pressure-1 ()
   "Test synchronous execution of jobs with high pressure on the queue"
-  (let ((pool (cl-threadpool:make-threadpool 5)) (job-count 1000))
+  (let ((pool (cl-threadpool:make-threadpool 5 :name "run-jobs-sync-pressure-1")) (job-count 1000))
     (cl-threadpool:start pool)
     (let ((jobs nil) (expected-job-results (make-array job-count)))
       (dotimes (i job-count)
@@ -106,7 +106,7 @@
 
 (define-test run-jobs-sync-pressure-2 ()
   "Test synchronous execution of jobs with high pressure on the queue"
-  (let ((pool (cl-threadpool:make-threadpool 2)) (job-count 10))
+  (let ((pool (cl-threadpool:make-threadpool 2 :name "run-jobs-sync-pressure-2")) (job-count 10))
     (cl-threadpool:start pool)
     (let ((jobs nil) (expected-job-results (make-array job-count)))
       (dotimes (i job-count)
