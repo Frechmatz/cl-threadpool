@@ -157,11 +157,6 @@
   (setf (slot-value pool 'size) size)
   (setf (slot-value (slot-value pool 'threads) 'thread-name-prefix) (slot-value pool 'name)))
 
-(defmacro with-pool-state-lock-held (pool state &body body)
-  `(bt:with-lock-held ((slot-value ,pool 'state-lock))
-     (let ((,state (slot-value pool 'state)))
-       ,@body)))
-
 (defun get-job (pool)
   "Get a job of the job queue. Returns nil if no job is available"
   (bt:with-lock-held ((slot-value pool 'state-lock))
@@ -225,8 +220,8 @@
 		:format-arguments (list thread-name)))
 	     (is-quit ()
 	       "Returns true when pool is stopping and the thread shall exit"
-	       (with-pool-state-lock-held pool state
-		 (eq state :stopping)))
+	       (bt:with-lock-held ((slot-value pool 'state-lock))
+		 (eq (slot-value pool 'state) :stopping)))
 	     (process ()
 	       "Fetch jobs from queue and process them"
 	       (loop
@@ -323,21 +318,22 @@
    pool -- A thread pool instance created by make-threadpool."
   (if (not (threadpoolp pool))
       (error 'threadpool-error :text "Not an instance of threadpool"))
-  (with-pool-state-lock-held pool s
-    (signal-pool-error-if (lambda() s) pool "Thread pool can only be started once")
-    (write-log
-     :info
-     :cl-threadpool
-     "Starting thread pool ~a..."
-     :format-arguments (list (slot-value pool 'name)))
-    (dotimes (i (slot-value pool 'size))
-      (add-worker-thread pool))
-    (setf (slot-value pool 'state) :running)
-    (write-log
-     :info
-     :cl-threadpool
-     "Thread pool ~a has been started"
-     :format-arguments (list (slot-value pool 'name)))))
+  (bt:with-lock-held ((slot-value pool 'state-lock))
+    (let ((s (slot-value pool 'state)))
+      (signal-pool-error-if (lambda() s) pool "Thread pool can only be started once")
+      (write-log
+       :info
+       :cl-threadpool
+       "Starting thread pool ~a..."
+       :format-arguments (list (slot-value pool 'name)))
+      (dotimes (i (slot-value pool 'size))
+	(add-worker-thread pool))
+      (setf (slot-value pool 'state) :running)
+      (write-log
+       :info
+       :cl-threadpool
+       "Thread pool ~a has been started"
+       :format-arguments (list (slot-value pool 'name))))))
 
 (defun stop (pool &key (force-destroy-timeout-seconds nil))
   "Stop the thread pool.
@@ -353,12 +349,14 @@
    (lambda () (worker-thread-p pool))
    pool
    "Thread pool cannot be stopped by a worker thread")
-  (if (with-pool-state-lock-held pool s
+  (let ((pool-already-stopped nil))
+    (bt:with-lock-held ((slot-value pool 'state-lock))
+      (let ((s (slot-value pool 'state)))
 	(if (eq s :stopped)
-	    nil) ;;; already stopped: return nil
-	(setf (slot-value pool 'state) :stopping)
-	t) ;;; not stopped: return t
-      (poll (:timeout-seconds force-destroy-timeout-seconds)
+	    (setf pool-already-stopped t)
+	    (setf (slot-value pool 'state) :stopping))))
+    (if (not pool-already-stopped)
+	(poll (:timeout-seconds force-destroy-timeout-seconds)
 	    (progn
 	      (write-log
 	       :info
@@ -375,15 +373,13 @@
 	       "Stopping thread pool ~a: Timeout reached. Destroying threads..."
 	       :format-arguments (list (slot-value pool 'name)))
 	      (destroy-all pool))))
-  (with-pool-state-lock-held pool s
-    (setf s :stopped))
-
-
+    (bt:with-lock-held ((slot-value pool 'state-lock))
+      (setf (slot-value pool 'state) :stopped))
   (write-log
    :info
    :cl-threadpool
    "Thread pool ~a has stopped"
-   :format-arguments (list (slot-value pool 'name))))
+   :format-arguments (list (slot-value pool 'name)))))
   
 (defun add-job (pool job)
   "Add a job to the pool. 
@@ -394,30 +390,31 @@
    * The pool must not be in stopped state."
   (if (not (threadpoolp pool))
       (error 'threadpool-error :text "Not an instance of threadpool"))
-  (with-pool-state-lock-held pool s
-    (signal-pool-error-if
-     (lambda () (eq s nil))
-     pool
-     "Cannot add job to thread pool that hasn't been started")
-    (signal-pool-error-if
-     (lambda () (eq s :stopping))
-     pool
-     "Cannot add job to stopping thread pool")
-    (signal-pool-error-if
-     (lambda () (eq s :stopped))
-     pool
-     "Cannot add job to stopped thread pool")
-    (queues:qpush (slot-value pool 'job-queue) job)
-    (write-log
-     :trace
-     :cl-threadpool
-     "Added job to queue of thread pool ~a"
-     :format-arguments (list (slot-value pool 'name)))
-    ;; All worker threads are waiting on pool cv. Once a thread has been
-    ;; notified it starts a loop of fetching and processing queued jobs.
-    ;; If the queue is empty, the thread again waits on pool cv.
-    (bt:condition-notify (slot-value pool 'cv))
-    nil))
+  (bt:with-lock-held ((slot-value pool 'state-lock))
+    (let ((s (slot-value pool 'state)))
+      (signal-pool-error-if
+       (lambda () (eq s nil))
+       pool
+       "Cannot add job to thread pool that hasn't been started")
+      (signal-pool-error-if
+       (lambda () (eq s :stopping))
+       pool
+       "Cannot add job to stopping thread pool")
+      (signal-pool-error-if
+       (lambda () (eq s :stopped))
+       pool
+       "Cannot add job to stopped thread pool")
+      (queues:qpush (slot-value pool 'job-queue) job)
+      (write-log
+       :trace
+       :cl-threadpool
+       "Added job to queue of thread pool ~a"
+       :format-arguments (list (slot-value pool 'name)))
+      ;; All worker threads are waiting on pool cv. Once a thread has been
+      ;; notified it starts a loop of fetching and processing queued jobs.
+      ;; If the queue is empty, the thread again waits on pool cv.
+      (bt:condition-notify (slot-value pool 'cv))
+      nil)))
 
 (defun run-jobs (pool jobs)
   "Synchronously run a list of jobs and return their results. Blocks the current thread until 
