@@ -169,10 +169,6 @@
   (bt:with-lock-held ((slot-value pool 'state-lock))
     (queues:qsize (slot-value pool 'job-queue))))
 
-(defmacro signal-pool-error-if (predicate pool error-message &key (cond-type 'threadpool-error))
-  `(if (funcall ,predicate)
-       (error ',cond-type :text (format nil "~a: ~a" ,error-message (slot-value ,pool 'name)))))
-
 (defun notify-all (pool)
   "Wake up all blocked threads."
   ;; did not found a better approach yet :(
@@ -320,7 +316,10 @@
       (error 'threadpool-error :text "Not an instance of threadpool"))
   (bt:with-lock-held ((slot-value pool 'state-lock))
     (let ((s (slot-value pool 'state)))
-      (signal-pool-error-if (lambda() s) pool "Thread pool can only be started once")
+      (if s
+	  (error 'threadpool-error
+		 :text (format nil "Thread pool can only be started once: ~a"
+			       (slot-value pool 'name))))
       (write-log
        :info
        :cl-threadpool
@@ -345,10 +344,10 @@
    * The stopping thread must not be a worker thread of the pool (to avoid deadlock)."
   (if (not (threadpoolp pool))
       (error 'threadpool-error :text "Not an instance of threadpool"))
-  (signal-pool-error-if
-   (lambda () (worker-thread-p pool))
-   pool
-   "Thread pool cannot be stopped by a worker thread")
+  (if (worker-thread-p pool)
+      (error 'threadpool-error
+	     :text (format nil "Thread pool cannot be stopped by a worker thread: ~a"
+			   (slot-value pool 'name))))
   (let ((pool-already-stopped nil))
     (bt:with-lock-held ((slot-value pool 'state-lock))
       (let ((s (slot-value pool 'state)))
@@ -392,18 +391,18 @@
       (error 'threadpool-error :text "Not an instance of threadpool"))
   (bt:with-lock-held ((slot-value pool 'state-lock))
     (let ((s (slot-value pool 'state)))
-      (signal-pool-error-if
-       (lambda () (eq s nil))
-       pool
-       "Cannot add job to thread pool that hasn't been started")
-      (signal-pool-error-if
-       (lambda () (eq s :stopping))
-       pool
-       "Cannot add job to stopping thread pool")
-      (signal-pool-error-if
-       (lambda () (eq s :stopped))
-       pool
-       "Cannot add job to stopped thread pool")
+      (if (not s)
+	  (error 'threadpool-error
+		 :text (format nil "Cannot add job to thread pool that hasn't been started: ~a"
+			       (slot-value pool 'name))))
+      (if (eq s :stopping)
+	  (error 'threadpool-error
+		 :text (format nil "Cannot add job to stopping thread pool: ~a"
+			       (slot-value pool 'name))))
+      (if (eq s :stopped)
+	  (error 'threadpool-error
+		 :text (format nil "Cannot add job to stopped thread pool: ~a"
+			       (slot-value pool 'name))))
       (queues:qpush (slot-value pool 'job-queue) job)
       (write-log
        :trace
