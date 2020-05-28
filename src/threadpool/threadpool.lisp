@@ -144,10 +144,10 @@
    (threads :initform (make-instance 'threadlist :thread-name-prefix "Threadpool"))
    (size :initform nil :documentation "Number of worker threads")
    (name :initform "Threadpool")
-   (state :initform nil
+   (state :initform :pending
 	  :documentation
 	  "State of the thread pool. 
-           One of nil, :RUNNING, :STOPPING, :STOPPED")
+           One of nil, :PENDING, :RUNNING, :STOPPING, :STOPPED")
    (state-lock :initform (bt:make-lock "thread-pool-state-lock"))
    (cv :initform (bt:make-condition-variable))
    (cv-lock :initform (bt:make-lock "thread-pool-cv-lock"))))
@@ -316,7 +316,7 @@
       (error 'threadpool-error :text "Not an instance of threadpool"))
   (bt:with-lock-held ((slot-value pool 'state-lock))
     (let ((s (slot-value pool 'state)))
-      (if s
+      (if (not (eq s :pending))
 	  (error 'threadpool-error
 		 :text (format nil "Thread pool can only be started once: ~a"
 			       (slot-value pool 'name))))
@@ -391,7 +391,7 @@
       (error 'threadpool-error :text "Not an instance of threadpool"))
   (bt:with-lock-held ((slot-value pool 'state-lock))
     (let ((s (slot-value pool 'state)))
-      (if (not s)
+      (if (eq s :pending)
 	  (error 'threadpool-error
 		 :text (format nil "Cannot add job to thread pool that hasn't been started: ~a"
 			       (slot-value pool 'name))))
