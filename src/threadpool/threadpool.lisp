@@ -149,18 +149,12 @@
 	  "State of the thread pool. 
            One of nil, :PENDING, :RUNNING, :STOPPING, :STOPPED")
    (state-lock :initform (bt:make-lock "thread-pool-state-lock"))
-   (cv :initform (bt:make-condition-variable))
-   (cv-lock :initform (bt:make-lock "thread-pool-cv-lock"))))
+   (cv :initform (bt:make-condition-variable))))
 
 (defmethod initialize-instance :after ((pool threadpool) &key name size) 
   (setf (slot-value pool 'name) (if name name (format nil "Threadpool-~a" (gensym))))
   (setf (slot-value pool 'size) size)
   (setf (slot-value (slot-value pool 'threads) 'thread-name-prefix) (slot-value pool 'name)))
-
-(defun get-job (pool)
-  "Get a job of the job queue. Returns nil if no job is available"
-  (bt:with-lock-held ((slot-value pool 'state-lock))
-    (queues:qpop (slot-value pool 'job-queue))))
 
 (defun queue-size (pool)
   "Get the current length of the job queue."
@@ -190,7 +184,7 @@
   (eq 0 (thread-count (slot-value pool 'threads))))
 
 (defun add-worker-thread (pool)
-  "Adds a worker thread to the pool."
+  "Adds a worker thread to the pool. Assumes that pool lock is set."
   (let ((thread-name (generate-thread-name (slot-value pool 'threads))))
     (add-thread
      (slot-value pool 'threads)
@@ -201,14 +195,14 @@
 	(labels
 	    ((wait ()
 	       "Wait until thread is scheduled for execution"
-	       ;; Lock
-	       (bt:acquire-lock (slot-value pool 'cv-lock) t)
+	       (bt:acquire-lock (slot-value pool 'state-lock) t)
 	       ;; Wait
 	       (bt:condition-wait
 		(slot-value pool 'cv)
-		(slot-value pool 'cv-lock))
+		(slot-value pool 'state-lock))
 	       ;; Unlock (we do not need the lock for further processing)
-	       (bt:release-lock (slot-value pool 'cv-lock))
+	       ;;(bt:release-lock (slot-value pool 'cv-lock))
+	       (bt:release-lock (slot-value pool 'state-lock))
 	       (write-log
 		:trace
 		:cl-threadpool
@@ -221,7 +215,9 @@
 	     (process ()
 	       "Fetch jobs from queue and process them"
 	       (loop
-		  (let ((job (get-job pool)))
+		  (let ((job nil))
+		    (bt:with-lock-held ((slot-value pool 'state-lock))
+		      (setf job (queues:qpop (slot-value pool 'job-queue))))
 		    (if job
 			(progn
 			  (handler-case
