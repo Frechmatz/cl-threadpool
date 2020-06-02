@@ -178,11 +178,11 @@
 	  (if job
 	      (progn
 		(bt:release-lock (slot-value pool 'state-lock))
-		(write-log
-		 :info
-		 :cl-threadpool
-		 "Worker thread ~a executes a job."
-		 :format-arguments (list thread-id))
+		;;(write-log
+		;; :info
+		;; :cl-threadpool
+		;; "Worker thread ~a executes a job."
+		;; :format-arguments (list thread-id))
 		(funcall job)
 		(bt:acquire-lock (slot-value pool 'state-lock) t))
 	      (progn
