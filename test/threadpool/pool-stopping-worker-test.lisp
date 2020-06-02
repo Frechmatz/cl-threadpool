@@ -8,12 +8,12 @@
   (let ((pool (cl-threadpool:make-threadpool 5 :name "pool-stopping-worker-thread")))
     (cl-threadpool:start pool)
     (let ((got-error nil))
-      (cl-threadpool:add-job
+      (cl-threadpool:run-jobs
        pool
-       (lambda ()
+       (list (lambda ()
 	 (handler-case 
 	     (cl-threadpool:stop pool)
-	   (error (err) (setf got-error err)))))
+	   (error (err) (setf got-error err))))))
       (cl-threadpool:stop pool)
       (assert-true got-error)
       (assert-true (typep got-error 'cl-threadpool:threadpool-error)))))

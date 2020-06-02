@@ -7,7 +7,7 @@
   (let ((pool (cl-threadpool:make-threadpool 5 :name "pool-add-job-test-1")))
     (let ((got-error nil))
       (handler-case 
-	  (cl-threadpool:add-job pool (lambda ()))
+	  (cl-threadpool:run-jobs pool (list (lambda ())))
 	(error (err) (setf got-error err)))
       (assert-true got-error)
       (assert-true (typep got-error 'cl-threadpool:threadpool-error)))))
@@ -16,13 +16,13 @@
   "Add job to pool that has stopped"
   (let ((pool (cl-threadpool:make-threadpool 5 :name "pool-add-job-test-2")))
     (cl-threadpool:start pool)
-    (cl-threadpool:add-job
+    (cl-threadpool:run-jobs
      pool
-     (lambda () ()))
+     (list (lambda () ())))
     (cl-threadpool:stop pool)
     (let ((got-error nil))
       (handler-case 
-	  (cl-threadpool:add-job pool (lambda ()))
+	  (cl-threadpool:run-jobs pool (list (lambda ())))
 	(error (err) (setf got-error err)))
       (assert-true got-error)
       (assert-true (typep got-error 'cl-threadpool:threadpool-error)))))

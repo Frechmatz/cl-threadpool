@@ -16,6 +16,7 @@ Change-Log
     * Removed :max-queue-size argument from threadpool. The size of the job queue is now unlimited.
     * Removed condition threadpool-error-queue-capacity-exceeded.
     * Added queue-size (pool) to get the number of jobs waiting for execution.
+    * Removed add-job. Has been replaced with run-jobs.
 
 Installation
 ------------
@@ -71,15 +72,6 @@ API
 
     Starts the given pool by instantiating the worker threads.
 
-* **add-job** (pool job)
-
-    Adds a job to the queue. 
-
-    * __pool__ A threadpool   
-    * __job__  A function with zero arguments that will be executed by a worker thread of the pool. A Job is supposed to handle all conditions.
-
-   Returns nil.
-
 * **run-jobs** (pool jobs)
 
    Synchronously executes a list of jobs. The current thread will be blocked until all jobs have been executed. 
@@ -89,13 +81,11 @@ API
 
     Returns an ordered list of job results.
 
-* **stop** (pool &key (force-destroy-timeout-seconds nil))
+* **stop** (pool &key (timeout-seconds nil))
 
-   Stops the thread pool. The function returns when all worker threads are no longer alive. A worker thread terminates
-when no job is available and the thread pool is stopping.
+   Stops the thread pool. The function returns when all worker threads are no longer alive. A worker thread terminates when no job is available and the thread pool is stopping.
 
-    * __force-destroy-timeout-seconds__ An optional timeout in seconds after which all still alive
-pool threads will be destroyed.
+    * __timeout-seconds__ An optional timeout in seconds.
   
 * **threadpoolp** (obj) => generalized boolean
 
