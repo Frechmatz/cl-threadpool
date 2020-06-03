@@ -15,8 +15,8 @@ Change-Log
     * Removed dependency 'verbose'.
     * Removed :max-queue-size argument from threadpool. The size of the job queue is now unlimited.
     * Removed condition threadpool-error-queue-capacity-exceeded.
-    * Added queue-size (pool) to get the number of jobs waiting for execution.
     * Removed add-job. Has been replaced with run-jobs.
+    * Added queue-size (pool) to get the number of jobs waiting for execution.
 
 Installation
 ------------
@@ -105,7 +105,7 @@ Condition-Types
 
 * **threadpool-error** (error)
 
-   The default condition that is signalled by the pool in any case of pool thread usage related errors.
+   This condition is signalled by the pool in case of thread pool usage related errors.
 
 Logging
 -------
@@ -123,15 +123,14 @@ Running the tests
 Supported Lisp implementations and operating systems
 ----------------------------------------------------
 
-Basically cl-threadpool should work fine on all systems that are supported by the ``bordeaux-threads`` package. 
-
 cl-threadpool has been tested with:
 
 * __MacOS 10.11.3 (El Capitan)__: SBCL, CCL, ABCL (Java 1.8)
-* __Windows 10__: SBCL, ABCL (Java 1.8)
 * __MacOS 10.15.1 (Catalina)__: SBCL 2.0.2
 * __MacOS 10.15.1 (Catalina)__: ABCL 1.6.1 Java 1.8.0_252 AdoptOpenJDK
-
+* __MacOS 10.15.1 (Catalina)__: CCL Version 1.12 DarwinX8664
+* __Windows 10__: SBCL 2.0.0
+* __Windows 10__: ABCL 1.6.1 Java(TM) SE Runtime Environment (build 1.8.0_251-b08)
 
 Contact
 -------
