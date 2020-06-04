@@ -66,7 +66,7 @@ Run some jobs. Blocks the current thread until all jobs have finished.
       (format t "~a" (second results)) ;; => "Job 2"
       (format t "~a" (third results)))) ;; => "Job 3"
 
-Stop the pool
+Stop the pool.
 
     (cl-threadpool:stop *threadpool*)
 
