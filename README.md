@@ -8,15 +8,28 @@ threads are picking jobs from the queue and execute them.
 Change-Log
 ----------
 
-* Version 1.0.0 (current quicklisp release)
-* Version 2.0.0 (work in progress)
-    * Added run-jobs (pool, jobs) for synchronous execution of jobs.
-    * Removed :resignal-job-conditions argument from threadpool. The pool no longer handles conditions signalled by a job.
-    * Removed dependency 'verbose'.
-    * Removed :max-queue-size argument from threadpool. The size of the job queue is now unlimited.
-    * Removed condition threadpool-error-queue-capacity-exceeded.
-    * Removed add-job. Has been replaced with run-jobs.
-    * Added queue-size (pool) to get the number of jobs waiting for execution.
+## Version 1.0.0 
+
+This version is the current quicklisp release.
+
+## Version 2.0.0
+
+This version is a major rework of the threadpool with bugfixes, new features and
+removal of features that have been identified as not being useful.
+
+### Breaking changes
+
+* Removed add-job. This function has been replaced with run-jobs.
+* Removed :resignal-job-conditions argument from threadpool. The pool no longer handles conditions signalled by a job.
+* Removed :max-queue-size argument from threadpool. The size of the job queue is now unlimited.
+* Removed condition threadpool-error-queue-capacity-exceeded.
+* Removed dependency 'verbose'. The library no longer depends on a logging framework.
+
+### New features
+
+* Added run-jobs for synchronous execution of jobs.
+* Added queue-size to get the number of jobs waiting for execution.
+* Added pool-name to get the name of a pool.
 
 Installation
 ------------
