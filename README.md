@@ -83,7 +83,9 @@ API
 
 * **stop** (pool &key (timeout-seconds nil))
 
-   Stops all worker threads. The function returns when all worker threads are no longer alive or when the timeout has been reached. Jobs still sitting in the queue may not be executed. The function does not destroy threads but signals to the worker threads that they are supposed to end. If a worker thread refuses to end it will be left running.  
+   Stops all worker threads. The function returns when all worker threads are no longer alive or when the timeout has been reached. Jobs still sitting in the queue may not be executed. The function does not destroy threads but signals to the worker threads that they are supposed to end. If a worker thread refuses to end it will be left running.
+   
+   Returns nil when all worker threads have been be stopped.
 
     * __timeout-seconds__ An optional timeout in seconds.
   
@@ -99,6 +101,10 @@ API
 
    Returns the number of jobs waiting for execution.
   
+* **pool-name** (pool)
+
+   Returns the name of the pool.
+
 
 Condition-Types
 ---------------
