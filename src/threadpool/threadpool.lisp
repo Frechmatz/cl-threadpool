@@ -162,6 +162,13 @@
   (bt:with-lock-held ((slot-value pool 'state-lock))
     (queues:qsize (slot-value pool 'job-queue))))
 
+(defun pool-name (pool)
+  "Get the name of the pool."
+  (if (not (threadpoolp pool))
+      (error 'threadpool-error :text "Not an instance of threadpool"))
+  (bt:with-lock-held ((slot-value pool 'state-lock))
+    (slot-value pool 'name)))
+
 (defun make-worker-thread (pool thread-id)
   "Adds a worker thread to the pool. Assumes that pool lock is set."
   (bt:make-thread
@@ -274,7 +281,8 @@
   "Stop the thread pool.
    Returns when all threads have stopped.
    pool -- A threadpool instance created by make-threadpool.
-   timeout-seconds -- An optional timeout in seconds."
+   timeout-seconds -- An optional timeout in seconds.
+   Returns nil when all worker threads have been be stopped."
   (if (not (threadpoolp pool))
       (error 'threadpool-error :text "Not an instance of threadpool"))
   (if (worker-thread-p pool)
@@ -283,7 +291,7 @@
 		    nil
 		    "Thread pool cannot be stopped by a worker thread: ~a"
 		    (slot-value pool 'name))))
-  (let ((pool-already-stopped nil))
+  (let ((pool-already-stopped nil) (stopped-all-threads t))
     (bt:with-lock-held ((slot-value pool 'state-lock))
       (let ((s (slot-value pool 'state)))
 	(if (eq s :stopped)
@@ -313,11 +321,13 @@
 			t)
 		      nil))
 		(progn
+		  (setf stopped-all-threads nil)
 		  (write-log
 		   :info
 		   :cl-threadpool
 		   "Stopping thread pool ~a: Timeout reached. Giving up."
-		   :format-arguments (list (slot-value pool 'name)))))))))
+		   :format-arguments (list (slot-value pool 'name)))))))
+    (not stopped-all-threads)))
   
 (defun add-job (pool job)
   "Add a job to the pool. 
