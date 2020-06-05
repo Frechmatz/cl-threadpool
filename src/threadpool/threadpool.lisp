@@ -117,6 +117,10 @@
 (defun assert-threadpoolp (obj)
   (if (not (threadpoolp obj))
       (error 'threadpool-error :text "Object is not an instance of threadpool")))
+
+(defun assert-jobp (job)
+  (if (not (functionp job))
+      (error 'threadpool-error :text "Job must be a function")))
   
 (defun queue-size (pool)
   "Get the current length of the job queue."
@@ -270,6 +274,7 @@
    * The pool must not be in stopping state.
    * The pool must not be in stopped state."
   (assert-threadpoolp pool)
+  (assert-jobp job)
   (bt:with-lock-held ((slot-value pool 'lock))
     (let ((s (slot-value pool 'state)))
       (if (eq s :pending)
@@ -301,14 +306,14 @@
   (assert-threadpoolp pool)
   (if (not (listp jobs))
       (error "jobs must be a list"))
+  (dolist (job jobs)
+    (assert-jobp job))
   (flet ((wrap-job (job job-lock)
 	     (lambda()
 	       (funcall (getf job-lock :set-value) (funcall job)))))
     (let ((job-locks nil) (job-results nil))
       ;; Wrap jobs and push them into the job queue
       (dolist (job jobs)
-	(if (not (functionp job))
-	    (error "Job must be a function"))
 	(let* ((job-lock (funcall (getf (slot-value pool 'job-lock-pool) :get)))
 	       (wrapped-job (wrap-job job job-lock)))
 	  (push job-lock job-locks)
