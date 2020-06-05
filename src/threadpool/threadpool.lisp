@@ -217,10 +217,10 @@
 		  (return))))))))
 
 (defun stop (pool &key (timeout-seconds nil))
-  "Stop the thread pool.
-   Returns when all threads have stopped.
-   pool -- A threadpool instance created by make-threadpool.
-   timeout-seconds -- An optional timeout in seconds.
+  "Stops all worker threads. The function returns when all worker threads are no longer alive 
+   or when the timeout has been reached. Jobs still sitting in the queue may not be executed. 
+   The function does not destroy threads but signals to the worker threads that they are 
+   supposed to end. If a worker thread refuses to end it will be left running.
    Returns nil when all worker threads have been be stopped."
   (assert-threadpoolp pool)
   (if (worker-thread-p pool)
