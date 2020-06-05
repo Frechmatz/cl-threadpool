@@ -131,7 +131,6 @@
     (slot-value pool 'name)))
 
 (defun make-worker-thread (pool thread-id)
-  "Creates a worker thread. Assumes that pool lock is set."
   (bt:make-thread
    (lambda ()
      (log-info "Worker thread ~a has started." thread-id)
