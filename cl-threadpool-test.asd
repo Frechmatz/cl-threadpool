@@ -10,11 +10,7 @@
     :depends-on (:lisp-unit
 		 :cl-threadpool
 		 :verbose)
-    :components ((:module "src/threadpool"
-			  :serial t
-			  :components ((:file "packages")
-				       (:file "threadpool")))
-		 (:module "test"
+    :components ((:module "test"
 			  :serial t
 			  :components ((:file "packages")))
 		 (:module "test/util"
