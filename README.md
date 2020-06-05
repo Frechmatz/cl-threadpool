@@ -8,13 +8,15 @@ easy to use API with a focus on blocking execution of job batches.
 Change-Log
 ----------
 
-## Version 1.0.0 
+## Version 1.0.0
 
-This version is the current quicklisp release.
+Initial release of cl-threadpool.
 
 ## Version 2.0.0
 
-This version is a major rework of the thread pool with bugfixes, new features and
+This version is the current quicklisp release.
+
+Version 2 is a major rework of the thread pool with bugfixes, new features and
 removal of features that have been identified as not being useful.
 
 ### Breaking changes
