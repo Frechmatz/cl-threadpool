@@ -118,14 +118,6 @@ API
 
    Returns the name of the pool.
 
-
-Condition-Types
----------------
-
-* **threadpool-error** (error)
-
-   This condition is signalled by the pool in case of thread pool usage related errors.
-
 Logging
 -------
 
