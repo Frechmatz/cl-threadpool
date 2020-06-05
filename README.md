@@ -19,7 +19,7 @@ removal of features that have been identified as not being useful.
 
 ### Breaking changes
 
-* Removed add-job. This function has been replaced with run-jobs.
+* Removed add-job. Has been replaced with run-jobs.
 * Removed :resignal-job-conditions argument from make-threadpool. The pool no longer handles conditions signalled by a job.
 * Removed :max-queue-size argument from make-threadpool. The size of the job queue is now unlimited.
 * Removed condition threadpool-error-queue-capacity-exceeded.
