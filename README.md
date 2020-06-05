@@ -2,8 +2,8 @@
 
 A thread pool implemented in Common Lisp.
 
-The thread pool consists of a bunch of worker threads and a job queue. It provides an
-easy to use API with a focus on synchronous (blocking) execution of job batches.
+A thread pool consists of a bunch of worker threads and a job queue. The library provides an
+easy to use API with a focus on blocking execution of job batches.
 
 Change-Log
 ----------
@@ -20,8 +20,8 @@ removal of features that have been identified as not being useful.
 ### Breaking changes
 
 * Removed add-job. This function has been replaced with run-jobs.
-* Removed :resignal-job-conditions argument from threadpool. The pool no longer handles conditions signalled by a job.
-* Removed :max-queue-size argument from threadpool. The size of the job queue is now unlimited.
+* Removed :resignal-job-conditions argument from make-threadpool. The pool no longer handles conditions signalled by a job.
+* Removed :max-queue-size argument from make-threadpool. The size of the job queue is now unlimited.
 * Removed condition threadpool-error-queue-capacity-exceeded.
 * Removed dependency 'verbose'. The library no longer depends on a logging framework.
 
@@ -29,7 +29,7 @@ removal of features that have been identified as not being useful.
 
 * Added run-jobs for synchronous execution of jobs.
 * Added queue-size to get the number of jobs waiting for execution.
-* Added pool-name to get the name of a pool.
+* Added pool-name to get the name of a thread pool.
 
 Installation
 ------------
@@ -49,11 +49,11 @@ Create a thread pool with 5 worker threads.
 
     (defparameter *threadpool* (cl-threadpool:make-threadpool 5))
 
-Start the pool.
+Start the thread pool.
 
     (cl-threadpool:start *threadpool*)
 
-Run some jobs. Blocks the current thread until all jobs have finished.
+Run a batch of jobs. Blocks the current thread until all jobs have finished.
 
     (let ((results
            (cl-threadpool:run-jobs
@@ -66,7 +66,7 @@ Run some jobs. Blocks the current thread until all jobs have finished.
       (format t "~a" (second results)) ;; => "Job 2"
       (format t "~a" (third results)))) ;; => "Job 3"
 
-Stop the pool.
+Stop the thread pool.
 
     (cl-threadpool:stop *threadpool*)
 
@@ -79,27 +79,30 @@ API
     * __size__ Number of worker threads
     * __name__  Name of the pool
 
-    Returns an object representing a threadpool.
+    Returns an object representing a thread pool.
     
 * **start** (pool)
 
-    Starts the given pool by instantiating the worker threads.
+    Starts the given thread pool by instantiating the worker threads.
+
+    * __pool__ A thread pool   
 
 * **run-jobs** (pool jobs)
 
-   Synchronously executes a list of jobs. The current thread will be blocked until all jobs have been executed. 
+   Synchronously executes a list of jobs. The current thread will be blocked until all jobs have finished. 
 
-    * __pool__ A threadpool   
+    * __pool__ A thread pool   
     * __jobs__  A list of jobs. Each job is represented by a function with zero arguments. A Job is supposed to handle all conditions.
 
     Returns an ordered list of job results.
 
 * **stop** (pool &key (timeout-seconds nil))
 
-   Stops all worker threads. The function returns when all worker threads are no longer alive or when the timeout has been reached. Jobs still sitting in the queue may not be executed. The function does not destroy threads but signals to the worker threads that they are supposed to end. If a worker thread refuses to end it will be left running.
+   Stops all worker threads of the given thread pool. The function returns when all worker threads are no longer alive or when the timeout has been reached. Jobs still sitting in the queue may not be executed. The function does not destroy threads but signals to the worker threads that they are supposed to end. If a worker thread refuses to end it will be left running.
    
    Returns nil when all worker threads have been be stopped.
 
+    * __pool__ A thread pool   
     * __timeout-seconds__ An optional timeout in seconds.
   
 * **threadpoolp** (obj) => generalized boolean
@@ -108,20 +111,26 @@ API
 
 * **worker-thread-p** (pool) => generalized boolean
 
-   Returns t if the current thread is a worker thread of the pool.
+   Returns t if the current thread is a worker thread of the given thread pool.
+
+   * __pool__ A thread pool   
 
 * **queue-size** (pool)
 
-   Returns the number of jobs waiting for execution.
-  
+   Returns the number of jobs waiting for execution for the given thread pool.
+
+    * __pool__ A thread pool   
+
 * **pool-name** (pool)
 
-   Returns the name of the pool.
+   Returns the name of the given thread pool.
+   
+    * __pool__ A thread pool   
 
 Logging
 -------
 
-The threadpool logs low-level events by calling the function ``cl-threadpool:*logger*``
+The thread pool logs low-level events by calling the function ``cl-threadpool:*logger*``
 The default implementation of this function is empty.
 
 Running the tests
