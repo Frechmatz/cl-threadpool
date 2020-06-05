@@ -101,8 +101,7 @@
    (name :initform "Threadpool")
    (state :initform :pending
 	  :documentation
-	  "State of the thread pool. 
-           One of nil, :PENDING, :RUNNING, :STOPPING, :STOPPED")
+	  "State of the thread pool. One of :PENDING, :RUNNING, :STOPPING, :STOPPED")
    (lock :initform (bt:make-lock "thread-pool-lock"))
    (cv :initform (bt:make-condition-variable))))
 
