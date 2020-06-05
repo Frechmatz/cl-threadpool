@@ -22,50 +22,6 @@
   (:documentation "The default condition that is signalled by thread pools"))
 
 ;;
-;; Thread list
-;;
-
-(defclass threadlist ()
-  ((lock :initform (bt:make-lock "threadlist-lock"))
-   (threads :initform '())
-   (thread-name-prefix :initform "threadlist"))
-  (:documentation
-   "Instances of this class hold all threads created by the thread pool."))
-
-(defmethod initialize-instance :after ((tlist threadlist) &key thread-name-prefix)
-  (setf (slot-value tlist 'thread-name-prefix) thread-name-prefix))
-
-(defun generate-thread-id (threadlist)
-  (bt:with-lock-held ((slot-value threadlist 'lock))
-    (format
-     nil
-     "~a-Thread-~a"
-     (slot-value threadlist 'thread-name-prefix)
-     (gensym))))
-
-(defun add-thread (threadlist thread thread-id)
-  ;; TODO Assert that id is unique
-  (bt:with-lock-held ((slot-value threadlist 'lock))
-    (push (list :id thread-id :thread thread) (slot-value threadlist 'threads))))
-
-(defun remove-thread (threadlist thread-id)
-  (bt:with-lock-held ((slot-value threadlist 'lock))
-    (setf (slot-value threadlist 'threads)
-	  (remove-if (lambda (item)
-		       (eq (getf item :id) thread-id))
-		     (slot-value threadlist 'threads)))))
-
-(defun thread-count (threadlist)
-  (bt:with-lock-held ((slot-value threadlist 'lock))
-    (length (slot-value threadlist 'threads))))
-
-(defun threadlist-worker-thread-p (threadlist thread)
-  "Returns true if the given thread is a worker thread of the given pool."
-  (bt:with-lock-held ((slot-value threadlist 'lock))
-    (find-if (lambda (cur-thread) (eq thread (getf cur-thread :thread)))
-		     (slot-value threadlist 'threads))))
-
-;;
 ;; Job-Lock pool
 ;;
 
@@ -140,7 +96,7 @@
 (defclass threadpool ()
   ((job-queue :initform (queues:make-queue :simple-queue))
    (job-lock-pool :initform (make-job-lock-pool))
-   (threads :initform (make-instance 'threadlist :thread-name-prefix "Threadpool"))
+   (threads :initform nil)
    (size :initform nil :documentation "Number of worker threads")
    (name :initform "Threadpool")
    (state :initform :pending
@@ -152,8 +108,7 @@
 
 (defmethod initialize-instance :after ((pool threadpool) &key name size) 
   (setf (slot-value pool 'name) (if name name (format nil "Threadpool-~a" (gensym))))
-  (setf (slot-value pool 'size) size)
-  (setf (slot-value (slot-value pool 'threads) 'thread-name-prefix) (slot-value pool 'name)))
+  (setf (slot-value pool 'size) size))
 
 (defun threadpoolp (obj)
   "Returns t if the given object represents a thread pool."
@@ -193,7 +148,10 @@
 		(funcall job)
 		(bt:acquire-lock (slot-value pool 'state-lock) t))
 	      (bt:condition-wait (slot-value pool 'cv) (slot-value pool 'state-lock)))))
-     (remove-thread (slot-value pool 'threads) thread-id)
+     ;; Remove thread from pool
+     (bt:with-lock-held ((slot-value pool 'state-lock))
+       (setf (slot-value pool 'threads)
+	(remove-if (lambda (item) (eq (getf item :id) thread-id)) (slot-value pool 'threads))))
      (log-info "Worker thread ~a has stopped." thread-id))
    :name thread-id))
 
@@ -206,7 +164,10 @@
 (defun worker-thread-p (pool)
   "Returns true if the current thread is a worker thread of the given pool."
   (assert-threadpoolp pool)
-  (threadlist-worker-thread-p (slot-value pool 'threads) (bt:current-thread)))
+  (let ((current-thread (bt:current-thread)))
+    (bt:with-lock-held ((slot-value pool 'state-lock))
+      (find-if (lambda (cur-thread) (eq current-thread (getf cur-thread :thread)))
+	       (slot-value pool 'threads)))))
 
 (defun start (pool)
   "Start the thread pool.
@@ -220,11 +181,11 @@
 			       (slot-value pool 'name))))
       (log-info "Starting thread pool ~a..." (slot-value pool 'name))
       (dotimes (i (slot-value pool 'size))
-	(let ((thread-id (generate-thread-id (slot-value pool 'threads))))
-	  (add-thread
-	   (slot-value pool 'threads)
-	   (make-worker-thread pool thread-id)
-	   thread-id)))
+	(let ((thread-id (format nil "~a-Thread-~a" (slot-value pool 'name) (gensym))))
+	  (push (list
+		 :id thread-id
+		 :thread (make-worker-thread pool thread-id))
+		(slot-value pool 'threads))))
       (setf (slot-value pool 'state) :running)
       (log-info "Thread pool ~a has been started" (slot-value pool 'name)))))
 
@@ -280,18 +241,22 @@
 	  (log-info "Stopping thread pool ~a..." (slot-value pool 'name))
 	  (poll (:timeout-seconds timeout-seconds)
 		(progn
-		  (dotimes (i (thread-count (slot-value pool 'threads)))
+		  (dotimes (i (slot-value pool 'size))
 		    (bt:condition-notify (slot-value pool 'cv)))
 		  (sleep 1)
-		  (if (eq 0 (thread-count (slot-value pool 'threads)))
-		      (progn
-			(bt:with-lock-held ((slot-value pool 'state-lock))
-			  (setf (slot-value pool 'state) :stopped))
-			(log-info
-			 "Stopping thread pool ~a: Pool has successfully stopped"
-			 (slot-value pool 'name))
-			t)
-		      nil))
+		  (let ((thread-count nil))
+		    (bt:with-lock-held ((slot-value pool 'state-lock))
+		      (setf thread-count (length (slot-value pool 'threads))))
+		    (if (eq 0 thread-count)
+			(progn
+			  (bt:with-lock-held ((slot-value pool 'state-lock))
+			    (setf (slot-value pool 'state) :stopped))
+			  (setf stopped-all-threads t)
+			  (log-info
+			   "Stopping thread pool ~a: Pool has successfully stopped"
+			   (slot-value pool 'name))
+			  t)
+			nil)))
 		(progn
 		  (setf stopped-all-threads nil)
 		  (log-info "Stopping thread pool ~a: Timeout reached. Giving up."
