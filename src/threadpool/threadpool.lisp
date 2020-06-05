@@ -103,7 +103,7 @@
 	  :documentation
 	  "State of the thread pool. 
            One of nil, :PENDING, :RUNNING, :STOPPING, :STOPPED")
-   (state-lock :initform (bt:make-lock "thread-pool-state-lock"))
+   (lock :initform (bt:make-lock "thread-pool-lock"))
    (cv :initform (bt:make-condition-variable))))
 
 (defmethod initialize-instance :after ((pool threadpool) &key name size) 
@@ -121,13 +121,13 @@
 (defun queue-size (pool)
   "Get the current length of the job queue."
   (assert-threadpoolp pool)
-  (bt:with-lock-held ((slot-value pool 'state-lock))
+  (bt:with-lock-held ((slot-value pool 'lock))
     (queues:qsize (slot-value pool 'job-queue))))
 
 (defun pool-name (pool)
   "Get the name of the pool."
   (assert-threadpoolp pool)
-  (bt:with-lock-held ((slot-value pool 'state-lock))
+  (bt:with-lock-held ((slot-value pool 'lock))
     (slot-value pool 'name)))
 
 (defun make-worker-thread (pool thread-id)
@@ -135,21 +135,21 @@
   (bt:make-thread
    (lambda ()
      (log-info "Worker thread ~a has started." thread-id)
-     (bt:acquire-lock (slot-value pool 'state-lock) t)
+     (bt:acquire-lock (slot-value pool 'lock) t)
      (loop ;; Entry point of loop body assumes that pool lock is set
 	(let ((job (queues:qpop (slot-value pool 'job-queue))))
 	  (if (eq (slot-value pool 'state) :stopping)
 	      (progn
-		(bt:release-lock (slot-value pool 'state-lock))
+		(bt:release-lock (slot-value pool 'lock))
 		(return)))
 	  (if job
 	      (progn
-		(bt:release-lock (slot-value pool 'state-lock))
+		(bt:release-lock (slot-value pool 'lock))
 		(funcall job)
-		(bt:acquire-lock (slot-value pool 'state-lock) t))
-	      (bt:condition-wait (slot-value pool 'cv) (slot-value pool 'state-lock)))))
+		(bt:acquire-lock (slot-value pool 'lock) t))
+	      (bt:condition-wait (slot-value pool 'cv) (slot-value pool 'lock)))))
      ;; Remove thread from pool
-     (bt:with-lock-held ((slot-value pool 'state-lock))
+     (bt:with-lock-held ((slot-value pool 'lock))
        (setf (slot-value pool 'threads)
 	(remove-if (lambda (item) (eq (getf item :id) thread-id)) (slot-value pool 'threads))))
      (log-info "Worker thread ~a has stopped." thread-id))
@@ -165,7 +165,7 @@
   "Returns true if the current thread is a worker thread of the given pool."
   (assert-threadpoolp pool)
   (let ((current-thread (bt:current-thread)))
-    (bt:with-lock-held ((slot-value pool 'state-lock))
+    (bt:with-lock-held ((slot-value pool 'lock))
       (find-if (lambda (cur-thread) (eq current-thread (getf cur-thread :thread)))
 	       (slot-value pool 'threads)))))
 
@@ -173,7 +173,7 @@
   "Start the thread pool.
    pool -- A thread pool instance created by make-threadpool."
   (assert-threadpoolp pool)
-  (bt:with-lock-held ((slot-value pool 'state-lock))
+  (bt:with-lock-held ((slot-value pool 'lock))
     (let ((s (slot-value pool 'state)))
       (if (not (eq s :pending))
 	  (error 'threadpool-error
@@ -231,7 +231,7 @@
 		    "Thread pool cannot be stopped by a worker thread: ~a"
 		    (slot-value pool 'name))))
   (let ((pool-already-stopped nil) (stopped-all-threads t))
-    (bt:with-lock-held ((slot-value pool 'state-lock))
+    (bt:with-lock-held ((slot-value pool 'lock))
       (let ((s (slot-value pool 'state)))
 	(if (eq s :stopped)
 	    (setf pool-already-stopped t)
@@ -245,11 +245,11 @@
 		    (bt:condition-notify (slot-value pool 'cv)))
 		  (sleep 1)
 		  (let ((thread-count nil))
-		    (bt:with-lock-held ((slot-value pool 'state-lock))
+		    (bt:with-lock-held ((slot-value pool 'lock))
 		      (setf thread-count (length (slot-value pool 'threads))))
 		    (if (eq 0 thread-count)
 			(progn
-			  (bt:with-lock-held ((slot-value pool 'state-lock))
+			  (bt:with-lock-held ((slot-value pool 'lock))
 			    (setf (slot-value pool 'state) :stopped))
 			  (setf stopped-all-threads t)
 			  (log-info
@@ -271,7 +271,7 @@
    * The pool must not be in stopping state.
    * The pool must not be in stopped state."
   (assert-threadpoolp pool)
-  (bt:with-lock-held ((slot-value pool 'state-lock))
+  (bt:with-lock-held ((slot-value pool 'lock))
     (let ((s (slot-value pool 'state)))
       (if (eq s :pending)
 	  (error 'threadpool-error
