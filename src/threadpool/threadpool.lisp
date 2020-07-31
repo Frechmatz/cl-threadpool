@@ -21,10 +21,112 @@
   ((text :initarg :text :reader text))
   (:documentation "The default condition that is signalled by thread pools"))
 
+
+;;
+;; Future
+;; TODO Think about which functions should be generic
+;;
+
+(defclass future ()
+  (
+   (lock :initform (bt:make-lock "future-lock"))
+   (cv :initform (bt:make-condition-variable))
+   (state :initform :pending) ;; TODO Think about initial state
+   (job :initform nil)
+   (value :initform nil)
+   ))
+
+(defgeneric set-value(future value)
+  (:documentation "Sets the result of the job"))
+
+(defgeneric get-value(future)
+  (:documentation "Get the result of the job. If the result is 
+     already available it will immediately be returned. Otherwise the function
+     blocks on the execution of the job."))
+(defgeneric reset (future))
+
+(defmethod set-value ((future-instance future) value)
+  (bt:with-lock-held ((slot-value future-instance 'lock))
+    (setf (slot-value future-instance 'value) value)
+    (setf (slot-value future-instance 'state) :set)
+    (setf (slot-value future-instance 'job) nil) ;; Release job
+    (bt:condition-notify (slot-value future-instance 'cv)))
+  nil)
+
+(defmethod get-value ((future-instance future))
+  (bt:acquire-lock (slot-value future-instance 'lock))
+  (if (eq (slot-value future-instance 'state) :set)
+      (progn
+	(bt:release-lock (slot-value future-instance 'lock))
+	(slot-value future-instance 'value))
+      (progn
+	;; loop in order to handle spurious wakeups
+	(loop
+	   (bt:condition-wait (slot-value future-instance 'cv) (slot-value future-instance 'lock))
+	   (if (eq (slot-value future-instance 'state) :set)
+	       (return)))
+	(bt:release-lock (slot-value future-instance 'lock))
+	(slot-value future-instance 'value))))
+
+(defmethod reset ((future-instance future))
+  (setf (slot-value future-instance 'state) :pending)
+  (setf (slot-value future-instance 'value) nil)
+  (setf (slot-value future-instance 'job) nil)
+  nil)
+
+(defun futurep (obj)
+  "Returns t if the given object represents a future."
+  (typep obj 'future))
+
+(defun assert-futurep (obj)
+  (if (not (futurep obj))
+      (error 'threadpool-error :text "Object is not an instance of future")))
+
+
+;;
+;; Future Factory
+;;
+
+;; TODO Rename this function
+(defun make-future-pool ()
+  "A future factory.
+   Returns a property list with the following keys:
+   - :get A function that allocates a future. If there is no lock available 
+     a new one will be created. Futures returned by this function can be put back
+     into the pool.
+   - :put A function that puts back a previously allocated future into the pool.
+   A future is represented by an instance of future."
+  (let ((pool-lock (bt:make-lock "future-pool")) (pool nil) (created-lock-count 0))
+    (list
+     :get (lambda()
+	    "Return an available future or create a new one."
+	    (bt:with-lock-held (pool-lock)
+	      (let ((l (pop pool)))
+		(if (not l)
+		    (progn
+		      (setf created-lock-count (+ 1 created-lock-count))
+		      (setf l (make-instance 'future))))
+		l)))
+     :put (lambda(future)
+	    "Put a future back into the pool."
+	    (bt:with-lock-held (pool-lock)
+	      (reset future)
+	      (push future pool)
+	      nil))
+     :length (lambda()
+	       (bt:with-lock-held (pool-lock)
+		 (length pool)))
+     ;; TODO Rename
+     :created-lock-count (lambda()
+			   (bt:with-lock-held (pool-lock)
+			     created-lock-count)))))
+
+
 ;;
 ;; Job-Lock pool
 ;;
 
+#|
 (defun make-job-lock-pool ()
   "Creates a pool that manages job locks.
    Returns a property list with the following keys:
@@ -89,25 +191,24 @@
 		 (bt:with-lock-held (pool-lock)
 		   created-lock-count))))))
 
+|#
+
 ;;
 ;; Thread pool
 ;;
 
 (defclass threadpool ()
-  ((job-queue :initform (queues:make-queue :simple-queue))
-   (job-lock-pool :initform (make-job-lock-pool))
+  ((job-queue :initform (queues:make-queue :simple-queue)
+	      :documentation "Pending jobs. Jobs are represented by instances of future.")
+   (future-pool :initform (make-future-pool))
    (threads :initform nil)
-   (size :initform nil :documentation "Number of worker threads")
-   (name :initform "Threadpool")
+   (size :initarg :size :documentation "Number of worker threads")
+   (name :initarg :name :initform (format nil "Threadpool-~a" (gensym)))
    (state :initform :pending
 	  :documentation
 	  "State of the thread pool. One of :PENDING, :RUNNING, :STOPPING, :STOPPED")
    (lock :initform (bt:make-lock "thread-pool-lock"))
    (cv :initform (bt:make-condition-variable))))
-
-(defmethod initialize-instance :after ((pool threadpool) &key name size) 
-  (setf (slot-value pool 'name) (if name name (format nil "Threadpool-~a" (gensym))))
-  (setf (slot-value pool 'size) size))
 
 (defun threadpoolp (obj)
   "Returns t if the given object represents a thread pool."
@@ -133,6 +234,7 @@
   (bt:with-lock-held ((slot-value pool 'lock))
     (slot-value pool 'name)))
 
+#|
 (defun make-worker-thread (pool thread-id)
   (bt:make-thread
    (lambda ()
@@ -150,6 +252,37 @@
 		(funcall job)
 		(bt:acquire-lock (slot-value pool 'lock) t))
 	      (bt:condition-wait (slot-value pool 'cv) (slot-value pool 'lock)))))
+     ;; Remove thread from pool
+     (bt:with-lock-held ((slot-value pool 'lock))
+       (setf (slot-value pool 'threads)
+	(remove-if (lambda (item) (eq (getf item :id) thread-id)) (slot-value pool 'threads))))
+     (log-info "Worker thread ~a has stopped." thread-id))
+   :name thread-id))
+
+|#
+
+(defun make-worker-thread (pool thread-id)
+  (bt:make-thread
+   (lambda ()
+     (log-info "Worker thread ~a has started." thread-id)
+     (bt:acquire-lock (slot-value pool 'lock) t)
+     (loop ;; Entry point of loop body assumes that pool lock is set
+	(let ((future (queues:qpop (slot-value pool 'job-queue))))
+	  (if (eq (slot-value pool 'state) :stopping)
+	      (progn
+		;; TODO Future handling (set to cancelled)
+		(bt:release-lock (slot-value pool 'lock))
+		(return)))
+	  (if future
+	      (progn
+		;; TODO Check if cancelled
+		(assert-futurep future) ;; TODO Replace assertion with logging and ignore job
+		(bt:release-lock (slot-value pool 'lock))
+		(set-value future (funcall (slot-value future 'job)))
+		(bt:acquire-lock (slot-value pool 'lock) t))
+	      (progn
+		;; No Job -> Wait on Job Queue
+		(bt:condition-wait (slot-value pool 'cv) (slot-value pool 'lock))))))
      ;; Remove thread from pool
      (bt:with-lock-held ((slot-value pool 'lock))
        (setf (slot-value pool 'threads)
@@ -271,7 +404,8 @@
    job -- A function with zero arguments. A job is supposed to handle all conditions.
    * The pool must have been started.
    * The pool must not be in stopping state.
-   * The pool must not be in stopped state."
+   * The pool must not be in stopped state.
+   Returns a future."
   (assert-threadpoolp pool)
   (assert-jobp job)
   (bt:with-lock-held ((slot-value pool 'lock))
@@ -288,13 +422,16 @@
 	  (error 'threadpool-error
 		 :text (format nil "Cannot add job to stopped thread pool: ~a"
 			       (slot-value pool 'name))))
-      (queues:qpush (slot-value pool 'job-queue) job)
-      (log-trace "Added job to queue of thread pool ~a" (slot-value pool 'name))
-      ;; Worker threads are waiting on pool cv. Once a thread has been
-      ;; notified it starts a loop of fetching and executing queued jobs.
-      ;; If the queue is empty, the thread again waits on pool cv.
-      (bt:condition-notify (slot-value pool 'cv))
-      nil)))
+      (let ((future (funcall (getf (slot-value pool 'future-pool) :get))))
+	(assert-futurep future)
+	(setf (slot-value future 'job) job)
+	(queues:qpush (slot-value pool 'job-queue) future)
+	(log-trace "Added job to queue of thread pool ~a" (slot-value pool 'name))
+	;; Worker threads are waiting on pool cv. Once a thread has been
+	;; notified it starts a loop of fetching and executing queued jobs.
+	;; If the queue is empty, the thread again waits on pool cv.
+	(bt:condition-notify (slot-value pool 'cv))
+	future))))
 
 (defun run-jobs (pool jobs)
   "Synchronously run a list of jobs and return their results. Blocks the current thread until 
@@ -307,22 +444,17 @@
       (error "jobs must be a list"))
   (dolist (job jobs)
     (assert-jobp job))
-  (flet ((wrap-job (job job-lock)
-	     (lambda()
-	       (funcall (getf job-lock :set-value) (funcall job)))))
-    (let ((job-locks nil) (job-results nil))
-      ;; Wrap jobs and push them into the job queue
-      (dolist (job jobs)
-	(let* ((job-lock (funcall (getf (slot-value pool 'job-lock-pool) :get)))
-	       (wrapped-job (wrap-job job job-lock)))
-	  (push job-lock job-locks)
-	  (add-job pool wrapped-job)))
-      ;; Wait for completion of jobs
-      (dolist (job-lock job-locks)
-	(let ((result (funcall (getf job-lock :get-value))))
-	  (push result job-results)
-	  ;; put job-lock back into lock pool
-	  (funcall (getf (slot-value pool 'job-lock-pool) :put) job-lock)))
-      ;; Why no reverse of the results? -> Job results have already been fetched in reverse order.
-      job-results)))
-    
+  (let ((futures nil) (job-results nil))
+    ;; TODO Replace with map
+    (dolist (job jobs)
+      (push (add-job pool job) futures))
+    ;; Wait for completion of jobs
+    (dolist (future futures)
+      (assert-futurep future)
+      (let ((result (get-value future)))
+	(push result job-results)
+	;; put future back into lock pool
+	(funcall (getf (slot-value pool 'future-pool) :put) future)))
+    ;; Why no reverse of the results? -> Job results have already been fetched in reverse order.
+    job-results))
+
