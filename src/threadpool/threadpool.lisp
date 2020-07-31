@@ -20,6 +20,9 @@
 (defun log-trace (format-control &rest format-arguments)
   (funcall *logger* :trace :cl-threadpool format-control format-arguments))
 
+;;
+;; Errors
+;;
 
 (define-condition threadpool-error (error)
   ((text :initarg :text :reader text))
@@ -90,7 +93,7 @@
 ;;
 
 (defclass future-factory ()
-  ((lock :initform (bt:make-lock "future-factory"))
+  ((lock :initform (bt:make-lock "future-factory-lock"))
    (pool :initform nil)
    (created-future-count
     :initform 0
