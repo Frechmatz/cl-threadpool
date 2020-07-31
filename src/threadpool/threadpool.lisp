@@ -5,6 +5,10 @@
 
 (in-package :cl-threadpool)
 
+;;
+;; Logging
+;;
+
 (defparameter *logger*
   (lambda(level who format-control format-arguments)
     (declare (ignore level who format-control format-arguments))
@@ -21,20 +25,17 @@
   ((text :initarg :text :reader text))
   (:documentation "The default condition that is signalled by thread pools"))
 
-
 ;;
 ;; Future
-;; TODO Think about which functions should be generic
 ;;
 
 (defclass future ()
-  (
-   (lock :initform (bt:make-lock "future-lock"))
+  ((lock :initform (bt:make-lock "future-lock"))
    (cv :initform (bt:make-condition-variable))
    (state :initform :pending) ;; TODO Think about initial state
-   (job :initform nil)
-   (value :initform nil)
-   ))
+   (job :initform nil :documentation "Function to be invoked by a worker thread.")
+   (value :initform nil))
+  (:documentation "Represents the result of a job."))
 
 (defgeneric set-value(future value)
   (:documentation "Sets the result of the job"))
@@ -43,13 +44,15 @@
   (:documentation "Get the result of the job. If the result is 
      already available it will immediately be returned. Otherwise the function
      blocks on the execution of the job."))
-(defgeneric reset (future))
+
+(defgeneric reset (future)
+  (:documentation "Prepare a future to be re-used"))
 
 (defmethod set-value ((future-instance future) value)
   (bt:with-lock-held ((slot-value future-instance 'lock))
     (setf (slot-value future-instance 'value) value)
     (setf (slot-value future-instance 'state) :set)
-    (setf (slot-value future-instance 'job) nil) ;; Release job
+    (setf (slot-value future-instance 'job) nil)
     (bt:condition-notify (slot-value future-instance 'cv)))
   nil)
 
@@ -82,23 +85,30 @@
   (if (not (futurep obj))
       (error 'threadpool-error :text "Object is not an instance of future")))
 
-
 ;;
 ;; Future Factory
 ;;
 
 (defclass future-factory ()
-  (
-   (lock :initform (bt:make-lock "future-factory"))
+  ((lock :initform (bt:make-lock "future-factory"))
    (pool :initform nil)
-   (created-future-count :initform 0)
-  ))
+   (created-future-count
+    :initform 0
+    :documentation "For debugging/testing purposes."))
+  (:documentation
+   "Creates future instances and keeps a pool of futures that can be re-used."))
 
 (defgeneric get-future (future-factory)
-  (:documentation "Get a future. Returns an available future or creates a new one."))
+  (:documentation
+   "Get a future. Returns an available future or creates a new one."))
 
 (defgeneric put-future (future-factory future)
-  (:documentation "Put back a previously allocated future into the pool."))
+  (:documentation
+   "Put back a previously requested future into the pool. Putting back
+    a future can only happen when the ownership of the future is well
+    defined. For example when the threadpool is asked to synchronously run
+    a batch of jobs then the underlying futures are not exposed to the application
+    and can safely be put back for further re-use."))
 
 (defmethod get-future ((future-factory-instance future-factory))
   (bt:with-lock-held ((slot-value future-factory-instance 'lock))
@@ -111,6 +121,7 @@
       l)))
 
 (defmethod put-future ((future-factory-instance future-factory) future)
+  (assert-futurep future)
   (bt:with-lock-held ((slot-value future-factory-instance 'lock))
     (reset future)
     (push future (slot-value future-factory-instance 'pool))
@@ -338,19 +349,17 @@
   (assert-threadpoolp pool)
   (if (not (listp jobs))
       (error "jobs must be a list"))
+  ;; Validate jobs. Queuing only takes place when all jobs are valid.
   (dolist (job jobs)
     (assert-jobp job))
-  (let ((futures nil) (job-results nil))
-    ;; TODO Replace with map
-    (dolist (job jobs)
-      (push (add-job pool job) futures))
-    ;; Wait for completion of jobs
-    (dolist (future futures)
-      (assert-futurep future)
-      (let ((result (get-value future)))
-	(push result job-results)
-	;; put future back into lock pool
-	(put-future (slot-value pool 'future-factory) future)))
-    ;; Why no reverse of the results? -> Job results have already been fetched in reverse order.
+  (let* ((futures (mapcar (lambda(job) (add-job pool job)) jobs))
+	 (job-results (mapcar
+		       (lambda(future)
+			 (let ((value (get-value future)))
+			   ;; Because in this function we are owning the futures,
+			   ;; we can put them back into the future pool.
+			   (put-future (slot-value pool 'future-factory) future)
+			   value))
+		       futures)))
     job-results))
-
+  
