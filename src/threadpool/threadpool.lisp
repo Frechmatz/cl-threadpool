@@ -87,111 +87,34 @@
 ;; Future Factory
 ;;
 
-;; TODO Rename this function
-(defun make-future-pool ()
-  "A future factory.
-   Returns a property list with the following keys:
-   - :get A function that allocates a future. If there is no lock available 
-     a new one will be created. Futures returned by this function can be put back
-     into the pool.
-   - :put A function that puts back a previously allocated future into the pool.
-   A future is represented by an instance of future."
-  (let ((pool-lock (bt:make-lock "future-pool")) (pool nil) (created-lock-count 0))
-    (list
-     :get (lambda()
-	    "Return an available future or create a new one."
-	    (bt:with-lock-held (pool-lock)
-	      (let ((l (pop pool)))
-		(if (not l)
-		    (progn
-		      (setf created-lock-count (+ 1 created-lock-count))
-		      (setf l (make-instance 'future))))
-		l)))
-     :put (lambda(future)
-	    "Put a future back into the pool."
-	    (bt:with-lock-held (pool-lock)
-	      (reset future)
-	      (push future pool)
-	      nil))
-     :length (lambda()
-	       (bt:with-lock-held (pool-lock)
-		 (length pool)))
-     ;; TODO Rename
-     :created-lock-count (lambda()
-			   (bt:with-lock-held (pool-lock)
-			     created-lock-count)))))
+(defclass future-factory ()
+  (
+   (lock :initform (bt:make-lock "future-factory"))
+   (pool :initform nil)
+   (created-future-count :initform 0)
+  ))
 
+(defgeneric get-future (future-factory)
+  (:documentation "Get a future. Returns an available future or creates a new one."))
 
-;;
-;; Job-Lock pool
-;;
+(defgeneric put-future (future-factory future)
+  (:documentation "Put back a previously allocated future into the pool."))
 
-#|
-(defun make-job-lock-pool ()
-  "Creates a pool that manages job locks.
-   Returns a property list with the following keys:
-   - :get A function that allocates a job lock. If there is no lock available 
-     a new one will be created. Locks returned by this function are supposed to be put back
-     into the pool.
-   - :put A function that puts back a previously allocated job lock into the pool.
-   A job lock is represented by a property list with the following keys:
-   - :set-value A function with one argument that sets the result of a job.
-   - :get-value A function that returns the result of a job. If the result is 
-     already available it will immediately be returned. Otherwise the function
-     blocks on the execution of the job."
-  (let ((pool-lock (bt:make-lock "job-lock-pool-lock")) (pool nil) (created-lock-count 0))
-    (flet ((make-job-lock ()
-	     (let ((job-lock (bt:make-lock "job-lock"))
-		   (job-cv (bt:make-condition-variable))
-		   (result nil)
-		   (state :pending))
-	       (list
-		:set-value (lambda(v)
-			     (bt:with-lock-held (job-lock)
-			       (setf result v)
-			       (setf state :set)
-			       (bt:condition-notify job-cv)))
-		:get-value (lambda()
-			     (bt:acquire-lock job-lock)
-			     (if (eq state :set)
-				 (progn
-				   (bt:release-lock job-lock)
-				   result)
-				 (progn
-				   ;; loop in order to handle spurious wakeups
-				   (loop
-				      (bt:condition-wait job-cv job-lock)
-				      (if (eq state :set)
-					  (return)))
-				   (bt:release-lock job-lock)
-				   result)))
-		:reset (lambda()
-			 (setf state :pending)
-			 (setf result nil))))))
-      (list
-       :get (lambda()
-	      "Return an available lock or create a new one."
-	      (bt:with-lock-held (pool-lock)
-		(let ((l (pop pool)))
-		  (if (not l)
-		      (progn
-			(setf created-lock-count (+ 1 created-lock-count))
-			(setf l (make-job-lock))))
-		  l)))
-       :put (lambda(job-lock)
-	      "Put a lock back into the pool."
-	      (bt:with-lock-held (pool-lock)
-		(funcall (getf job-lock :reset))
-		(push job-lock pool)
-		nil))
-       :length (lambda()
-		 (bt:with-lock-held (pool-lock)
-		   (length pool)))
-       :created-lock-count (lambda()
-		 (bt:with-lock-held (pool-lock)
-		   created-lock-count))))))
+(defmethod get-future ((future-factory-instance future-factory))
+  (bt:with-lock-held ((slot-value future-factory-instance 'lock))
+    (let ((l (pop (slot-value future-factory-instance 'pool))))
+      (if (not l)
+	  (progn
+	    (setf (slot-value future-factory-instance 'created-future-count)
+		  (+ 1 (slot-value future-factory-instance 'created-future-count)))
+	    (setf l (make-instance 'future))))
+      l)))
 
-|#
+(defmethod put-future ((future-factory-instance future-factory) future)
+  (bt:with-lock-held ((slot-value future-factory-instance 'lock))
+    (reset future)
+    (push future (slot-value future-factory-instance 'pool))
+    nil))
 
 ;;
 ;; Thread pool
@@ -200,7 +123,7 @@
 (defclass threadpool ()
   ((job-queue :initform (queues:make-queue :simple-queue)
 	      :documentation "Pending jobs. Jobs are represented by instances of future.")
-   (future-pool :initform (make-future-pool))
+   (future-factory :initform (make-instance 'future-factory))
    (threads :initform nil)
    (size :initarg :size :documentation "Number of worker threads")
    (name :initarg :name :initform (format nil "Threadpool-~a" (gensym)))
@@ -233,33 +156,6 @@
   (assert-threadpoolp pool)
   (bt:with-lock-held ((slot-value pool 'lock))
     (slot-value pool 'name)))
-
-#|
-(defun make-worker-thread (pool thread-id)
-  (bt:make-thread
-   (lambda ()
-     (log-info "Worker thread ~a has started." thread-id)
-     (bt:acquire-lock (slot-value pool 'lock) t)
-     (loop ;; Entry point of loop body assumes that pool lock is set
-	(let ((job (queues:qpop (slot-value pool 'job-queue))))
-	  (if (eq (slot-value pool 'state) :stopping)
-	      (progn
-		(bt:release-lock (slot-value pool 'lock))
-		(return)))
-	  (if job
-	      (progn
-		(bt:release-lock (slot-value pool 'lock))
-		(funcall job)
-		(bt:acquire-lock (slot-value pool 'lock) t))
-	      (bt:condition-wait (slot-value pool 'cv) (slot-value pool 'lock)))))
-     ;; Remove thread from pool
-     (bt:with-lock-held ((slot-value pool 'lock))
-       (setf (slot-value pool 'threads)
-	(remove-if (lambda (item) (eq (getf item :id) thread-id)) (slot-value pool 'threads))))
-     (log-info "Worker thread ~a has stopped." thread-id))
-   :name thread-id))
-
-|#
 
 (defun make-worker-thread (pool thread-id)
   (bt:make-thread
@@ -422,7 +318,7 @@
 	  (error 'threadpool-error
 		 :text (format nil "Cannot add job to stopped thread pool: ~a"
 			       (slot-value pool 'name))))
-      (let ((future (funcall (getf (slot-value pool 'future-pool) :get))))
+      (let ((future (get-future (slot-value pool 'future-factory))))
 	(assert-futurep future)
 	(setf (slot-value future 'job) job)
 	(queues:qpush (slot-value pool 'job-queue) future)
@@ -454,7 +350,7 @@
       (let ((result (get-value future)))
 	(push result job-results)
 	;; put future back into lock pool
-	(funcall (getf (slot-value pool 'future-pool) :put) future)))
+	(put-future (slot-value pool 'future-factory) future)))
     ;; Why no reverse of the results? -> Job results have already been fetched in reverse order.
     job-results))
 

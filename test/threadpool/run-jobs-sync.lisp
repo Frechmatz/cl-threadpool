@@ -35,8 +35,9 @@
       (assert-equal "Job 1" (first results))
       (assert-equal "Job 2" (second results))
       (assert-equal "Job 3" (third results))
-      (assert-equal 3 (funcall (getf (slot-value pool 'cl-threadpool::future-pool) :length)))
-      (assert-equal 3 (funcall (getf (slot-value pool 'cl-threadpool::future-pool) :created-lock-count)))
+      (let ((future-factory (slot-value pool 'cl-threadpool::future-factory)))
+	(assert-equal 3 (length (slot-value future-factory 'cl-threadpool::pool)))
+	(assert-equal 3 (slot-value future-factory 'cl-threadpool::created-future-count)))
 
       (setf results
 	    (cl-threadpool:run-jobs
@@ -52,8 +53,10 @@
       (assert-equal "Job 11" (first results))
       (assert-equal "Job 22" (second results))
       (assert-equal "Job 33" (third results))
-      (assert-equal 3 (funcall (getf (slot-value pool 'cl-threadpool::future-pool) :length)))
-      (assert-equal 3 (funcall (getf (slot-value pool 'cl-threadpool::future-pool) :created-lock-count))))))
+      (let ((future-factory (slot-value pool 'cl-threadpool::future-factory)))
+	(assert-equal 3 (length (slot-value future-factory 'cl-threadpool::pool)))
+	(assert-equal 3 (slot-value future-factory 'cl-threadpool::created-future-count)))
+      )))
 
 (define-test run-jobs-sync-many-threads ()
   "Test synchronous execution of jobs"
