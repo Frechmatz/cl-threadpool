@@ -12,13 +12,17 @@
 (defparameter *logger*
   (lambda(level who format-control format-arguments)
     (declare (ignore level who format-control format-arguments))
-    nil))
+    nil)
+  "Logging hook. The default implementation is empty.")
 
 (defun log-info (format-control &rest format-arguments)
   (funcall *logger* :info :cl-threadpool format-control format-arguments))
 
 (defun log-trace (format-control &rest format-arguments)
   (funcall *logger* :trace :cl-threadpool format-control format-arguments))
+
+(defun log-error (format-control &rest format-arguments)
+  (funcall *logger* :error :cl-threadpool format-control format-arguments))
 
 ;;
 ;; Errors
@@ -31,8 +35,18 @@
 (define-condition threadpool-execution-error (error)
   ((report :initarg :report :reader report))
   (:documentation
-   "Represents unhandled conditions signalled by a job. Initialization arguments:
-    :report An object representing the actual error. Must not be an instance of Error"))
+   "Represents unhandled errors thrown by a job. Initialization arguments:
+    :report An object representing the error. This object is typically not an instance 
+    of error."))
+
+(defparameter *job-error-to-report*
+  (lambda (err)
+    (list :message (format nil "~a" err)))
+  "Function to convert an unhandled job error to an object that
+   is passed as :report property to the instantiation function of
+   threadpool-execution-error. The function is called in the context
+   of a worker thread. The final threadpool-execution-error error will 
+   typically be thrown in a different thread context.")
 
 ;;
 ;; Future
@@ -46,46 +60,6 @@
    (value :initform nil))
   (:documentation "Represents the result of a job."))
 
-(defgeneric set-value(future value)
-  (:documentation "Sets the result of the job"))
-
-(defgeneric get-value(future)
-  (:documentation "Get the result of the job. If the result is 
-     already available it will immediately be returned. Otherwise the function
-     blocks on the execution of the job."))
-
-(defgeneric reset (future)
-  (:documentation "Prepare a future to be re-used"))
-
-(defmethod set-value ((future-instance future) value)
-  (bt:with-lock-held ((slot-value future-instance 'lock))
-    (setf (slot-value future-instance 'value) value)
-    (setf (slot-value future-instance 'state) :set)
-    (setf (slot-value future-instance 'job) nil)
-    (bt:condition-notify (slot-value future-instance 'cv)))
-  nil)
-
-(defmethod get-value ((future-instance future))
-  (bt:acquire-lock (slot-value future-instance 'lock))
-  (if (eq (slot-value future-instance 'state) :set)
-      (progn
-	(bt:release-lock (slot-value future-instance 'lock))
-	(slot-value future-instance 'value))
-      (progn
-	;; loop in order to handle spurious wakeups
-	(loop
-	   (bt:condition-wait (slot-value future-instance 'cv) (slot-value future-instance 'lock))
-	   (if (eq (slot-value future-instance 'state) :set)
-	       (return)))
-	(bt:release-lock (slot-value future-instance 'lock))
-	(slot-value future-instance 'value))))
-
-(defmethod reset ((future-instance future))
-  (setf (slot-value future-instance 'state) :pending)
-  (setf (slot-value future-instance 'value) nil)
-  (setf (slot-value future-instance 'job) nil)
-  nil)
-
 (defun futurep (obj)
   "Returns t if the given object represents a future."
   (typep obj 'future))
@@ -93,6 +67,61 @@
 (defun assert-futurep (obj)
   (if (not (futurep obj))
       (error 'threadpool-error :text "Object is not an instance of future")))
+
+(defun future-done-p (future)
+  "Returns t if the job has completed. A job is completed when it has
+   normally terminated, thrown an error or been cancelled."
+  (assert-futurep future)
+  (let ((state (slot-value future 'state)))
+    (or (eq state :set) (eq state :rejected))))
+
+(defun return-future-value (future)
+  (cond
+    ((eq (slot-value future 'state) :set)
+     (slot-value future 'value))
+    ((eq (slot-value future 'state) :rejected)
+     (error 'threadpool-execution-error :report
+	    (slot-value future 'value)))
+    (t (error
+	(format
+	 nil
+	 "return-future-value: Dont know how to handle state ~a of future"
+	 (slot-value future 'state))))))
+
+(defun set-future-value (future value is-error)
+  (bt:with-lock-held ((slot-value future 'lock))
+    (setf (slot-value future 'value) value)
+    (setf (slot-value future 'state) (if is-error :rejected :set))
+    (setf (slot-value future 'job) nil)
+    (bt:condition-notify (slot-value future 'cv)))
+  nil)
+
+(defun reset-future (future)
+  (setf (slot-value future 'state) :pending)
+  (setf (slot-value future 'value) nil)
+  (setf (slot-value future 'job) nil)
+  nil)
+
+(defun future-value (future)
+  "Get the result of the job. If the result is 
+   already available it will immediately be returned. Otherwise the function
+   blocks on the execution of the job."
+  (assert-futurep future)
+  (bt:acquire-lock (slot-value future 'lock))
+  (cond
+    ((future-done-p future)
+     (bt:release-lock (slot-value future 'lock))
+     (return-future-value future))
+    (t
+     (loop
+	;; loop in order to handle spurious wakeups
+	;; Entry point of loop body assumes that lock is set
+	(bt:condition-wait (slot-value future 'cv)
+			   (slot-value future 'lock))
+	(if (future-done-p future)
+	    (return)))
+     (bt:release-lock (slot-value future 'lock))
+     (return-future-value future))))
 
 ;;
 ;; Future Factory
@@ -132,7 +161,7 @@
 (defmethod put-future ((future-factory-instance future-factory) future)
   (assert-futurep future)
   (bt:with-lock-held ((slot-value future-factory-instance 'lock))
-    (reset future)
+    (reset-future future)
     (push future (slot-value future-factory-instance 'pool))
     nil))
 
@@ -186,23 +215,32 @@
 	(let ((future (queues:qpop (slot-value pool 'job-queue))))
 	  (if (eq (slot-value pool 'state) :stopping)
 	      (progn
-		;; TODO Future handling (set to cancelled)
 		(bt:release-lock (slot-value pool 'lock))
 		(return)))
 	  (if future
 	      (progn
-		;; TODO Check if cancelled
-		(assert-futurep future) ;; TODO Replace assertion with logging and ignore job
+		(assert-futurep future)
 		(bt:release-lock (slot-value pool 'lock))
-		(set-value future (funcall (slot-value future 'job)))
+		(handler-case
+		    (set-future-value
+		     future
+		     (funcall (slot-value future 'job)) nil)
+		  (condition (c)
+		    (log-error "Unhandled job error: ~a" c)
+		    (set-future-value
+		     future
+		     (funcall *job-error-to-report* c) t)))
 		(bt:acquire-lock (slot-value pool 'lock) t))
 	      (progn
 		;; No Job -> Wait on Job Queue
-		(bt:condition-wait (slot-value pool 'cv) (slot-value pool 'lock))))))
+		(bt:condition-wait (slot-value pool 'cv)
+				   (slot-value pool 'lock))))))
      ;; Remove thread from pool
      (bt:with-lock-held ((slot-value pool 'lock))
        (setf (slot-value pool 'threads)
-	(remove-if (lambda (item) (eq (getf item :id) thread-id)) (slot-value pool 'threads))))
+	     (remove-if (lambda (item)
+			  (eq (getf item :id) thread-id))
+			(slot-value pool 'threads))))
      (log-info "Worker thread ~a has stopped." thread-id))
    :name thread-id))
 
@@ -345,7 +383,7 @@
 (defun add-job (pool job)
   "Add a job to the pool. 
    pool -- A threadpool instance as created by make-threadpool.   
-   job -- A function with zero arguments. A job is supposed to handle all conditions.
+   job -- A function with zero arguments. A job is supposed to handle all errors.
    * The pool must have been started.
    * The pool must not be in stopping state.
    * The pool must not be in stopped state.
@@ -354,24 +392,29 @@
 
 (defun run-jobs (pool jobs)
   "Synchronously run a list of jobs and return their results. Blocks the current thread until 
-   all jobs have been completed. Jobs are supposed to handle all conditions.
+   all jobs have been completed. Jobs are supposed to handle all errors. In the case
+   of unhandled job errors or job cancellations this function still synchronizes on 
+   the completion of all jobs and after that re-throws the first error it has catched.
    - pool: The threadpool
    - jobs: A list of jobs. Each job is represented by a function with no arguments.
-   Returns an ordered list of the results that the jobs have returned."
+   Returns an ordered list of the results that the jobs have returned.
+   Signals the following errors:
+   - threadpool-execution-error When a job has thrown an unhandled error."
   (assert-threadpoolp pool)
   (if (not (listp jobs))
       (error "jobs must be a list"))
-  ;; Validate jobs. Queuing only takes place when all jobs are valid.
   (dolist (job jobs)
     (assert-jobp job))
-  (let* ((futures (mapcar (lambda(job) (add-job-impl pool job)) jobs))
-	 (job-results (mapcar
-		       (lambda(future)
-			 (let ((value (get-value future)))
-			   ;; Because in this function we are owning the futures,
-			   ;; we can put them back into the future pool.
-			   (put-future (slot-value pool 'future-factory) future)
-			   value))
-		       futures)))
-    job-results))
+  (let ((futures (mapcar (lambda(job) (add-job-impl pool job)) jobs))
+	(job-error nil)
+	(job-results nil))
+    (dolist (future futures)
+      (handler-case
+	  (push (future-value future) job-results)
+	(condition (c)
+	  (if (not job-error) (setf job-error c))))
+      ;; We are owning the futures here and can put them back into the pool.
+      (put-future (slot-value pool 'future-factory) future))
+    (if job-error (error job-error) (reverse job-results))))
+
   
