@@ -2,9 +2,10 @@
 
 (init-logger)
 
-(define-test run-jobs-sync-simple ()
+
+(define-test run-jobs-simple ()
   "Test synchronous execution of jobs"
-  (let ((pool (cl-threadpool:make-threadpool 2 :name "run-jobs-sync-simple")))
+  (let ((pool (cl-threadpool:make-threadpool 2 :name "run-jobs-simple")))
     (cl-threadpool:start pool)
     (let ((results
 	   (cl-threadpool:run-jobs
@@ -19,9 +20,9 @@
       (assert-equal "Job 2" (second results))
       (assert-equal "Job 3" (third results)))))
 
-(define-test run-jobs-sync-pool-management ()
-  "Test management of job-locks"
-  (let ((pool (cl-threadpool:make-threadpool 2 :name "run-jobs-sync-pool-management")))
+(define-test run-jobs-future-pool-management ()
+  "Test management of re-usable futures"
+  (let ((pool (cl-threadpool:make-threadpool 2 :name "run-jobs-future-pool-management")))
     (cl-threadpool:start pool)
     (let ((results
 	   (cl-threadpool:run-jobs
@@ -58,9 +59,9 @@
 	(assert-equal 3 (slot-value future-factory 'cl-threadpool::created-future-count)))
       )))
 
-(define-test run-jobs-sync-many-threads ()
+(define-test run-jobs-many-threads ()
   "Test synchronous execution of jobs"
-  (let ((pool (cl-threadpool:make-threadpool 10 :name "run-jobs-sync-many-threads")))
+  (let ((pool (cl-threadpool:make-threadpool 10 :name "run-jobs-many-threads")))
     (cl-threadpool:start pool)
     (let ((results
 	   (cl-threadpool:run-jobs
@@ -75,9 +76,9 @@
       (assert-equal "Job 2" (second results))
       (assert-equal "Job 3" (third results)))))
 
-(define-test run-jobs-sync-few-threads ()
+(define-test run-jobs-few-threads ()
   "Test synchronous execution of jobs"
-  (let ((pool (cl-threadpool:make-threadpool 1 :name "run-jobs-sync-few-threads")))
+  (let ((pool (cl-threadpool:make-threadpool 1 :name "run-jobs-few-threads")))
     (cl-threadpool:start pool)
     (let ((results
 	   (cl-threadpool:run-jobs
@@ -92,9 +93,9 @@
       (assert-equal "Job 2" (second results))
       (assert-equal "Job 3" (third results)))))
 
-(define-test run-jobs-sync-pressure-1 ()
+(define-test run-jobs-pressure-1 ()
   "Test synchronous execution of jobs with high pressure on the queue"
-  (let ((pool (cl-threadpool:make-threadpool 5 :name "run-jobs-sync-pressure-1")) (job-count 1000))
+  (let ((pool (cl-threadpool:make-threadpool 5 :name "run-jobs-pressure-1")) (job-count 1000))
     (cl-threadpool:start pool)
     (let ((jobs nil) (expected-job-results (make-array job-count)))
       (dotimes (i job-count)
@@ -107,9 +108,9 @@
 	(dotimes (i job-count)
 	  (assert-equal (elt expected-job-results i) (elt results i)))))))
 
-(define-test run-jobs-sync-pressure-2 ()
+(define-test run-jobs-pressure-2 ()
   "Test synchronous execution of jobs with high pressure on the queue"
-  (let ((pool (cl-threadpool:make-threadpool 2 :name "run-jobs-sync-pressure-2")) (job-count 10))
+  (let ((pool (cl-threadpool:make-threadpool 2 :name "run-jobs-pressure-2")) (job-count 10))
     (cl-threadpool:start pool)
     (let ((jobs nil) (expected-job-results (make-array job-count)))
       (dotimes (i job-count)

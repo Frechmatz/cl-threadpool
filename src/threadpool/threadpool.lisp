@@ -28,6 +28,12 @@
   ((text :initarg :text :reader text))
   (:documentation "The default condition that is signalled by thread pools"))
 
+(define-condition threadpool-execution-error (error)
+  ((report :initarg :report :reader report))
+  (:documentation
+   "Represents unhandled conditions signalled by a job. Initialization arguments:
+    :report An object representing the actual error. Must not be an instance of Error"))
+
 ;;
 ;; Future
 ;;
@@ -307,15 +313,8 @@
 		  (log-info "Stopping thread pool ~a: Timeout reached. Giving up."
 			    (slot-value pool 'name))))))
     (not stopped-all-threads)))
-  
-(defun add-job (pool job)
-  "Add a job to the pool. 
-   pool -- A threadpool instance as created by make-threadpool.   
-   job -- A function with zero arguments. A job is supposed to handle all conditions.
-   * The pool must have been started.
-   * The pool must not be in stopping state.
-   * The pool must not be in stopped state.
-   Returns a future."
+
+(defun add-job-impl (pool job)
   (assert-threadpoolp pool)
   (assert-jobp job)
   (bt:with-lock-held ((slot-value pool 'lock))
@@ -343,6 +342,16 @@
 	(bt:condition-notify (slot-value pool 'cv))
 	future))))
 
+(defun add-job (pool job)
+  "Add a job to the pool. 
+   pool -- A threadpool instance as created by make-threadpool.   
+   job -- A function with zero arguments. A job is supposed to handle all conditions.
+   * The pool must have been started.
+   * The pool must not be in stopping state.
+   * The pool must not be in stopped state.
+   Returns a future."
+  (add-job-impl pool job))
+
 (defun run-jobs (pool jobs)
   "Synchronously run a list of jobs and return their results. Blocks the current thread until 
    all jobs have been completed. Jobs are supposed to handle all conditions.
@@ -355,7 +364,7 @@
   ;; Validate jobs. Queuing only takes place when all jobs are valid.
   (dolist (job jobs)
     (assert-jobp job))
-  (let* ((futures (mapcar (lambda(job) (add-job pool job)) jobs))
+  (let* ((futures (mapcar (lambda(job) (add-job-impl pool job)) jobs))
 	 (job-results (mapcar
 		       (lambda(future)
 			 (let ((value (get-value future)))

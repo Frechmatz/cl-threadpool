@@ -33,6 +33,15 @@ removal of features that have been identified as not being useful.
 * Added queue-size to get the number of jobs waiting for execution.
 * Added pool-name to get the name of a thread pool.
 
+## Version 3.0.0
+
+An interface compatible rework of the threadpool which introduces futures.
+
+### New features
+
+* Error handling: Worker threads catch all unhandled errors
+* add-job is back.
+
 Installation
 ------------
 

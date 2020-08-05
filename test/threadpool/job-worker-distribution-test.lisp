@@ -2,9 +2,13 @@
 
 (init-logger)
 
-(define-test job-dispatch-run-jobs-sync-1 ()
+;;
+;; Not sure, if this test assumes too much about the underlying
+;; thread implementation.
+;;
+(define-test job-worker-distribution ()
   "Test that jobs are dispatched to all available worker threads"
-  (let ((pool (cl-threadpool:make-threadpool 3 :name "job-dispatch-run-jobs-sync-1" )))
+  (let ((pool (cl-threadpool:make-threadpool 3 :name "job-worker-distribution" )))
     (cl-threadpool:start pool)
     (let ((results
 	   (cl-threadpool:run-jobs
