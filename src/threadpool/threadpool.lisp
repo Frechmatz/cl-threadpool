@@ -73,33 +73,15 @@
   (if (not (futurep obj))
       (error 'threadpool-error :text "Object is not an instance of future")))
 
+(defun future-state-done-p (future-state)
+  (or (eq future-state :set) (eq future-state :rejected) (eq future-state :cancelled)))
+
 (defun future-done-p (future)
   "Returns t if the job has completed. A job is completed when it has
    normally terminated, thrown an error or been cancelled."
   (assert-futurep future)
-  (let ((state (slot-value future 'state)))
-    (or (eq state :set) (eq state :rejected))))
-
-(defun return-future-value (future)
-  (cond
-    ((eq (slot-value future 'state) :set)
-     (slot-value future 'value))
-    ((eq (slot-value future 'state) :rejected)
-     (error 'threadpool-execution-error :report
-	    (slot-value future 'value)))
-    (t (error
-	(format
-	 nil
-	 "return-future-value: Dont know how to handle state ~a of future"
-	 (slot-value future 'state))))))
-
-(defun set-future-value (future value is-error)
   (bt:with-lock-held ((slot-value future 'lock))
-    (setf (slot-value future 'value) value)
-    (setf (slot-value future 'state) (if is-error :rejected :set))
-    (setf (slot-value future 'job) nil)
-    (bt:condition-notify (slot-value future 'cv)))
-  nil)
+    (future-state-done-p (slot-value future 'state))))
 
 (defun reset-future (future)
   (setf (slot-value future 'state) :pending)
@@ -107,26 +89,66 @@
   (setf (slot-value future 'job) nil)
   nil)
 
+(defun set-future-value (future value value-type)
+  "Sets the value of a future. This is the one and only function
+   that changes the state of a future. The function has the following arguments:
+   <ul>
+    <li>future The future.</li>
+    <li>value The value.</li>
+    <li>value-type One of :completed, :unhandled-error, :cancelled</li>
+   </ul>"
+  (bt:with-lock-held ((slot-value future 'lock))
+    (let ((state (slot-value future 'state)))
+      (cond
+	((eq state :cancelled)
+	 ;; Allow multiple cancels but ignore new values
+	 nil)
+	((future-state-done-p state)
+	 (error "Internal error: Value of future has already been set"))
+	(t
+	 (let ((future-state
+		;; Map value-type to state of future
+		(cond
+		  ((eq :completed value-type) :set)
+		  ((eq :unhandled-error value-type) :rejected)
+		  ((eq :cancelled value-type) :cancelled)
+		  (t (error (format nil "Invalid value-type ~a" value-type))))))
+	   (setf (slot-value future 'value) value)
+	   (setf (slot-value future 'state) future-state)
+	   (setf (slot-value future 'job) nil)
+	   (bt:condition-notify (slot-value future 'cv)))
+	 nil)))))
+
 (defun future-value (future)
-  "Get the result of the job. If the result is 
-   already available it will immediately be returned. Otherwise the function
-   blocks on the execution of the job."
+  "Get the result of the job. If the result is already available it will immediately 
+   be returned. Otherwise the function blocks on the completion of the job."
   (assert-futurep future)
-  (bt:acquire-lock (slot-value future 'lock))
-  (cond
-    ((future-done-p future)
-     (bt:release-lock (slot-value future 'lock))
-     (return-future-value future))
-    (t
-     (loop
-	;; loop in order to handle spurious wakeups
-	;; Entry point of loop body assumes that lock is set
-	(bt:condition-wait (slot-value future 'cv)
-			   (slot-value future 'lock))
-	(if (future-done-p future)
-	    (return)))
-     (bt:release-lock (slot-value future 'lock))
-     (return-future-value future))))
+  (flet ((release-lock-and-return-value ()
+	   (bt:release-lock (slot-value future 'lock))
+	   ;; We can safely access state and value without having a lock set,
+	   ;; because set-future-value will prevent any changes.
+	   (let ((state (slot-value future 'state)) (value (slot-value future 'value)))
+	     (cond
+	       ((eq state :set)
+		value)
+	       ((eq state :rejected)
+		(error 'threadpool-execution-error :report value))
+	       ((eq state :cancelled)
+		(error 'threadpool-cancellation-error :text "Job has been cancelled"))
+	       (t
+		(error (format nil "Dont know how to handle state ~a" state)))))))
+    (bt:acquire-lock (slot-value future 'lock))
+    (if (future-state-done-p (slot-value future 'state))
+	(release-lock-and-return-value)
+	(progn
+	  (loop
+	     ;; Loop until future is done in order to handle spurious wakeups
+	     ;; Entry point of loop body assumes that lock is set
+	     (bt:condition-wait (slot-value future 'cv)
+				(slot-value future 'lock))
+	     (if (future-state-done-p (slot-value future 'state))
+		 (return)))
+	  (release-lock-and-return-value)))))
 
 ;;
 ;; Future Factory
@@ -229,12 +251,12 @@
 		(handler-case
 		    (set-future-value
 		     future
-		     (funcall (slot-value future 'job)) nil)
+		     (funcall (slot-value future 'job)) :completed)
 		  (condition (c)
 		    (log-error "Unhandled job error: ~a" c)
 		    (set-future-value
 		     future
-		     (funcall *job-error-to-report* c) t)))
+		     (funcall *job-error-to-report* c) :unhandled-error)))
 		(bt:acquire-lock (slot-value pool 'lock) t))
 	      (progn
 		;; No Job -> Wait on Job Queue
