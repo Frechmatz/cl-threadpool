@@ -48,6 +48,11 @@
    of a worker thread. The final threadpool-execution-error error will 
    typically be thrown in a different thread context.")
 
+(define-condition threadpool-cancellation-error (error)
+  ((text :initarg :text :reader text))
+  (:documentation
+   "This error is signalled when the result of a job is requested but the job has been cancelled."))
+
 ;;
 ;; Future
 ;;

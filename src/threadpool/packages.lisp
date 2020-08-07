@@ -2,6 +2,7 @@
   (:use :cl)
   (:export :threadpool-error)
   (:export :threadpool-execution-error)
+  (:export :threadpool-cancellation-error)
   (:export :threadpoolp)
   (:export :worker-thread-p)
   (:export :future-value)
