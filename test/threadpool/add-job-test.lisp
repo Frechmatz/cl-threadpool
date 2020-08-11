@@ -31,3 +31,23 @@
 	(assert-equal "Job 3" result-3)
 	(assert-equal "Job 4" result-4)
 	(assert-equal "Job 5" result-5)))))
+
+(define-test add-job-execution-error ()
+  "Test that a condition signalled by a worker is properly handled."
+  (let ((pool (cl-threadpool:make-threadpool 2 :name "error-handling-add-job")))
+    (cl-threadpool:start pool)
+    (let ((catched-error nil)
+	  (future (cl-threadpool:add-job
+		   pool
+		   (lambda()
+		     (sleep 1)
+		     (error "Job failure")))))
+      (handler-case
+	  (cl-threadpool:future-value future)
+	(error (err)
+	  (setf catched-error err)))
+      (cl-threadpool:stop pool)
+      (assert-true catched-error)
+      (assert-true (typep
+		    catched-error
+		    'cl-threadpool:threadpool-execution-error)))))

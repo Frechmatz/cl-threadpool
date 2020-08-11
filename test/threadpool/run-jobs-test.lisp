@@ -124,3 +124,26 @@
 	(dotimes (i job-count)
 	  (assert-equal (elt expected-job-results i) (elt results i)))))))
 
+(define-test run-jobs-execution-error ()
+  "Run a batch of jobs and test that job execution errors are properly handled."
+  (let ((pool (cl-threadpool:make-threadpool 2 :name "error-handling-run-jobs")))
+    (cl-threadpool:start pool)
+    (let ((catched-error nil))
+      (handler-case
+	  (cl-threadpool:run-jobs
+	   pool
+	   (list
+	    (lambda() (sleep 1) "Job 1")
+	    (lambda() (sleep 2) (error "Job 2 Error"))
+	    (lambda() (sleep 3) "Job 3")))
+	(error (err)
+	  (progn
+	    (setf catched-error err))))
+      (let ((l (cl-threadpool:queue-size pool)))
+	(cl-threadpool:stop pool)
+	(assert-true catched-error)
+	(assert-true (typep
+		      catched-error
+		      'cl-threadpool:threadpool-execution-error))
+	(assert-equal 0 l)))))
+

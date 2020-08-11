@@ -24,5 +24,4 @@
 				       (:file "pool-state-test")
 				       (:file "add-job-test")
 				       (:file "run-jobs-test")
-				       (:file "job-worker-distribution-test")
-				       (:file "error-handling-test")))))
+				       (:file "job-worker-distribution-test")))))
