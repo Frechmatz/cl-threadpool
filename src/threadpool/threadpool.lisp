@@ -260,24 +260,30 @@
      (log-info "Worker thread ~a has started." thread-id)
      (bt:acquire-lock (slot-value pool 'lock) t)
      (loop ;; Entry point of loop body assumes that pool lock is set
-	(let ((future (queues:qpop (slot-value pool 'job-queue))))
-	  (if (eq (slot-value pool 'state) :stopping)
-	      (progn
-		(bt:release-lock (slot-value pool 'lock))
-		(return)))
+	(let ((future (queues:qpop (slot-value pool 'job-queue)))
+	      (pool-is-stopping (eq (slot-value pool 'state) :stopping)))
 	  (if future
 	      (progn
-		(assert-futurep future)
 		(bt:release-lock (slot-value pool 'lock))
-		(handler-case
-		    (set-future-completed future (funcall (slot-value future 'job)))
-		  (condition (c)
-		    (log-error "Unhandled job error: ~a" c)
-		    (set-future-rejected future (funcall *job-error-to-report* c))))
+		(if pool-is-stopping
+		    (progn
+		      ;; When pool is to be stopped then cancel all pending jobs
+		      (set-future-cancelled future))
+		    (progn
+		      (handler-case
+			  (set-future-completed future (funcall (slot-value future 'job)))
+			(condition (c)
+			  (log-error "Unhandled job error: ~a" c)
+			  (set-future-rejected future (funcall *job-error-to-report* c))))))
 		(bt:acquire-lock (slot-value pool 'lock) t))
 	      (progn
-		;; No Job -> Wait on Job Queue
-		(bt:condition-wait (slot-value pool 'cv) (slot-value pool 'lock))))))
+		(if pool-is-stopping
+		    ;; No Job and pool is stopping => Quit loop and let thread end
+		    (progn
+		      (bt:release-lock (slot-value pool 'lock))
+		      (return))
+		    ;; No Job -> Wait on Job Queue
+		    (bt:condition-wait (slot-value pool 'cv) (slot-value pool 'lock)))))))
      ;; Remove thread from pool
      (bt:with-lock-held ((slot-value pool 'lock))
        (setf (slot-value pool 'threads)
