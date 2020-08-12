@@ -147,3 +147,32 @@
 		      'cl-threadpool:threadpool-execution-error))
 	(assert-equal 0 l)))))
 
+(define-test run-jobs-stop-pool-1 ()
+  "Stop a pool which is running a batch of jobs. Assumes probably too much about 
+   the underlying thread implementation"
+  (let ((pool-to-stop (cl-threadpool:make-threadpool 1 :name "run-jobs-stop-pool-1"))
+	(got-cancellation-error nil)
+	(lock (bt:make-lock "run-jobs-stop-pool-1-lock")))
+    (cl-threadpool:start pool-to-stop)
+    (bt:make-thread (lambda()
+		      (bt:acquire-lock lock) 
+		      (handler-case
+			  (cl-threadpool:run-jobs
+			   pool-to-stop
+			   (list
+			    (lambda() (sleep 10) "Job 1")
+			    (lambda() (sleep 10) "Job 2")
+			    (lambda() (sleep 10) "Job 3")))
+			(error (err)
+			  (progn
+			    (cl-threadpool::log-info "Got error: ~a" err)
+			    (if (typep err 'cl-threadpool:threadpool-cancellation-error)
+				(setf got-cancellation-error t)))))
+		      (bt:release-lock lock)))
+    (sleep 3) ;; Assume that tread is running after x seconds
+    (let ((stopped-result (cl-threadpool:stop pool-to-stop :timeout-seconds 20)))
+      (bt:acquire-lock lock) 
+      (bt:release-lock lock) 
+      (assert-true (not stopped-result))
+      (assert-true got-cancellation-error))))
+
