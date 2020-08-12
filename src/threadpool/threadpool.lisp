@@ -268,6 +268,7 @@
 		(if pool-is-stopping
 		    (progn
 		      ;; When pool is to be stopped then cancel all pending jobs
+		      (log-info "Pool is stopping. Cancelling job")
 		      (set-future-cancelled future))
 		    (progn
 		      (handler-case
