@@ -383,17 +383,12 @@
 		  (dotimes (i (slot-value pool 'size))
 		    (bt:condition-notify (slot-value pool 'cv)))
 		  (sleep 1)
-		  (let ((thread-count nil))
-		    (bt:with-lock-held ((slot-value pool 'lock))
-		      (setf thread-count (length (slot-value pool 'threads))))
-		    (if (eq 0 thread-count)
+		  (bt:with-lock-held ((slot-value pool 'lock))
+		    (if (eq 0 (length (slot-value pool 'threads)))
 			(progn
-			  (bt:with-lock-held ((slot-value pool 'lock))
-			    (setf (slot-value pool 'state) :stopped))
+			  (setf (slot-value pool 'state) :stopped)
 			  (setf stopped-all-threads t)
-			  (log-info
-			   "Stopping thread pool ~a: Pool has successfully stopped"
-			   (slot-value pool 'name))
+			  (log-info "Pool ~a has stopped" (slot-value pool 'name))
 			  t)
 			nil)))
 		(progn
