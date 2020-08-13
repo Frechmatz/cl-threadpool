@@ -367,31 +367,32 @@
 		    nil
 		    "Thread pool cannot be stopped by a worker thread: ~a"
 		    (slot-value pool 'name))))
-  (let ((pool-already-stopped nil))
-    (bt:with-lock-held ((slot-value pool 'lock))
-      (let ((s (slot-value pool 'state)))
-	(if (eq s :stopped)
-	    (setf pool-already-stopped t)
-	    (setf (slot-value pool 'state) :stopping))))
-    (if (not pool-already-stopped)
-	(progn
-	  (log-info "Stopping thread pool ~a..." (slot-value pool 'name))
-	  (poll (:timeout-seconds timeout-seconds)
-		(progn
-		  (dotimes (i (slot-value pool 'size))
-		    (bt:condition-notify (slot-value pool 'cv)))
-		  (sleep 1)
-		  (bt:with-lock-held ((slot-value pool 'lock))
-		    (if (eq 0 (length (slot-value pool 'threads)))
-			(progn
-			  (setf (slot-value pool 'state) :stopped)
-			  (log-info "Pool ~a has stopped" (slot-value pool 'name))
-			  t)
-			nil)))
-		(progn
-		  (log-info "Stopping thread pool ~a: Timeout reached. Giving up."
-			    (slot-value pool 'name))))))
-    nil))
+  (bt:acquire-lock (slot-value pool 'lock))
+  (cond
+    ((or (eq :stopped (slot-value pool 'state)) (eq :stopping (slot-value pool 'state)))
+     (bt:release-lock (slot-value pool 'lock))
+     nil)
+    (t
+     (setf (slot-value pool 'state) :stopping)
+     (log-info "Stopping thread pool ~a..." (slot-value pool 'name))
+     (bt:release-lock (slot-value pool 'lock))
+     (poll (:timeout-seconds timeout-seconds)
+	   (progn
+	     (dotimes (i (slot-value pool 'size))
+	       (bt:condition-notify (slot-value pool 'cv)))
+	     (sleep 1)
+	     (bt:with-lock-held ((slot-value pool 'lock))
+	       (if (not (eq 0 (length (slot-value pool 'threads))))
+		   nil
+		   (progn
+		     (setf (slot-value pool 'state) :stopped)
+		     (log-info "Pool ~a has stopped" (slot-value pool 'name))
+		     t))))
+	   (progn
+	     (log-info
+	      "Stopping thread pool ~a: Timeout reached. Giving up."
+	      (slot-value pool 'name))))
+     nil)))
 
 (defun add-job-impl (pool job)
   (assert-threadpoolp pool)
