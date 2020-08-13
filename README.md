@@ -35,12 +35,16 @@ removal of features that have been identified as not being useful.
 
 ## Version 3.0.0
 
-An interface compatible rework of the threadpool which introduces futures.
+### Breaking changes
+
+* Removed start (pool) 
+* stop (pool) No longer returns an indicator if all threads have terminated.
 
 ### New features
 
 * Error handling: Worker threads catch all unhandled errors
 * add-job is back.
+* Added pool-stopped-p
 
 Installation
 ------------
@@ -59,10 +63,6 @@ Load cl-threadpool.
 Create a thread pool with 5 worker threads.
 
     (defparameter *threadpool* (cl-threadpool:make-threadpool 5))
-
-Start the thread pool.
-
-    (cl-threadpool:start *threadpool*)
 
 Run a batch of jobs. Blocks the current thread until all jobs have finished.
 
@@ -92,12 +92,6 @@ API
 
     Returns an object representing a thread pool.
     
-* **start** (pool)
-
-    Starts the given thread pool by instantiating the worker threads.
-
-    * __pool__ A thread pool   
-
 * **run-jobs** (pool jobs)
 
    Synchronously executes a list of jobs. The current thread will be blocked until all jobs have finished. 
@@ -137,6 +131,13 @@ API
    Returns the name of the given thread pool.
    
     * __pool__ A thread pool   
+
+* **pool-stopped-p** (pool)
+
+   Returns t if the pool has been stopped.
+   
+    * __pool__ A thread pool   
+
 
 Logging
 -------

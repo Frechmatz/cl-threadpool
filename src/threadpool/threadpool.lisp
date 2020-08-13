@@ -254,6 +254,12 @@
   (bt:with-lock-held ((slot-value pool 'lock))
     (slot-value pool 'name)))
 
+(defun pool-stopped-p (pool)
+  "Returns t if the pool has successfully been stopped."
+  (assert-threadpoolp pool)
+  (bt:with-lock-held ((slot-value pool 'lock))
+    (eq (slot-value pool 'state) :stopped)))
+  
 (defun make-worker-thread (pool thread-id)
   (bt:make-thread
    (lambda ()
@@ -298,26 +304,8 @@
   "Create a thread pool.
    name -- Name of the pool.
    size -- Number of worker threads."
-  (make-instance 'threadpool :name name :size size))
-
-(defun worker-thread-p (pool)
-  "Returns true if the current thread is a worker thread of the given pool."
-  (assert-threadpoolp pool)
-  (let ((current-thread (bt:current-thread)))
+  (let ((pool (make-instance 'threadpool :name name :size size)))
     (bt:with-lock-held ((slot-value pool 'lock))
-      (find-if (lambda (cur-thread) (eq current-thread (getf cur-thread :thread)))
-	       (slot-value pool 'threads)))))
-
-(defun start (pool)
-  "Start the thread pool.
-   pool -- A thread pool instance created by make-threadpool."
-  (assert-threadpoolp pool)
-  (bt:with-lock-held ((slot-value pool 'lock))
-    (let ((s (slot-value pool 'state)))
-      (if (not (eq s :pending))
-	  (error 'threadpool-error
-		 :text (format nil "Thread pool can only be started once: ~a"
-			       (slot-value pool 'name))))
       (log-info "Starting thread pool ~a..." (slot-value pool 'name))
       (dotimes (i (slot-value pool 'size))
 	(let ((thread-id (format nil "~a-Thread-~a" (slot-value pool 'name) (gensym))))
@@ -326,7 +314,16 @@
 		 :thread (make-worker-thread pool thread-id))
 		(slot-value pool 'threads))))
       (setf (slot-value pool 'state) :running)
-      (log-info "Thread pool ~a has been started" (slot-value pool 'name)))))
+      (log-info "Thread pool ~a has been started" (slot-value pool 'name))
+      pool)))
+
+(defun worker-thread-p (pool)
+  "Returns true if the current thread is a worker thread of the given pool."
+  (assert-threadpoolp pool)
+  (let ((current-thread (bt:current-thread)))
+    (bt:with-lock-held ((slot-value pool 'lock))
+      (find-if (lambda (cur-thread) (eq current-thread (getf cur-thread :thread)))
+	       (slot-value pool 'threads)))))
 
 (defmacro poll ((&key (timeout-seconds nil)) test-body timeout-body)
   "Evaluates repeatedly test-body. If the test-body returns true the loop
@@ -358,10 +355,11 @@
 
 (defun stop (pool &key (timeout-seconds nil))
   "Stops all worker threads. The function returns when all worker threads are no longer alive 
-   or when the timeout has been reached. Jobs still sitting in the queue may not be executed. 
+   or when the timeout has been reached or when the pool is stopping or is already stopped. 
+   All pending jobs that are not currently being executed by a worker will be cancelled.
    The function does not destroy threads but signals to the worker threads that they are 
    supposed to end. If a worker thread refuses to end it will be left running.
-   Returns nil when all worker threads have been be stopped."
+   See also pool-stopped-p"
   (assert-threadpoolp pool)
   (if (worker-thread-p pool)
       (error 'threadpool-error
@@ -369,7 +367,7 @@
 		    nil
 		    "Thread pool cannot be stopped by a worker thread: ~a"
 		    (slot-value pool 'name))))
-  (let ((pool-already-stopped nil) (stopped-all-threads t))
+  (let ((pool-already-stopped nil))
     (bt:with-lock-held ((slot-value pool 'lock))
       (let ((s (slot-value pool 'state)))
 	(if (eq s :stopped)
@@ -387,32 +385,22 @@
 		    (if (eq 0 (length (slot-value pool 'threads)))
 			(progn
 			  (setf (slot-value pool 'state) :stopped)
-			  (setf stopped-all-threads t)
 			  (log-info "Pool ~a has stopped" (slot-value pool 'name))
 			  t)
 			nil)))
 		(progn
-		  (setf stopped-all-threads nil)
 		  (log-info "Stopping thread pool ~a: Timeout reached. Giving up."
 			    (slot-value pool 'name))))))
-    (not stopped-all-threads)))
+    nil))
 
 (defun add-job-impl (pool job)
   (assert-threadpoolp pool)
   (assert-jobp job)
   (bt:with-lock-held ((slot-value pool 'lock))
     (let ((s (slot-value pool 'state)))
-      (if (eq s :pending)
+      (if (or (eq s :stopping) (eq s :stopped))
 	  (error 'threadpool-error
-		 :text (format nil "Cannot add job to thread pool that hasn't been started: ~a"
-			       (slot-value pool 'name))))
-      (if (eq s :stopping)
-	  (error 'threadpool-error
-		 :text (format nil "Cannot add job to stopping thread pool: ~a"
-			       (slot-value pool 'name))))
-      (if (eq s :stopped)
-	  (error 'threadpool-error
-		 :text (format nil "Cannot add job to stopped thread pool: ~a"
+		 :text (format nil "Cannot add job to stopping or stopped thread pool: ~a"
 			       (slot-value pool 'name))))
       (let ((future (get-future (slot-value pool 'future-factory))))
 	(assert-futurep future)

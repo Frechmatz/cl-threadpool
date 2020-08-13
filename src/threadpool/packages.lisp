@@ -8,12 +8,12 @@
   (:export :future-value)
   (:export :future-done-p)
   (:export :make-threadpool)
-  (:export :start)
   (:export :stop)
   (:export :add-job)
   (:export :run-jobs)
   (:export :queue-size)
   (:export :pool-name)
+  (:export :pool-stopped-p)
   (:export :*logger*)
   (:export :*job-error-to-report*))
 

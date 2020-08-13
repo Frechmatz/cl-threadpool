@@ -6,7 +6,6 @@
 (define-test run-jobs-simple ()
   "Test synchronous execution of jobs"
   (let ((pool (cl-threadpool:make-threadpool 2 :name "run-jobs-simple")))
-    (cl-threadpool:start pool)
     (let ((results
 	   (cl-threadpool:run-jobs
 	    pool
@@ -15,6 +14,7 @@
 	     (lambda() (sleep 2) "Job 2")
 	     (lambda() (sleep 1) "Job 3")))))
       (cl-threadpool:stop pool)
+      (assert-true (cl-threadpool:pool-stopped-p pool))
       (assert-equal 3 (length results))
       (assert-equal "Job 1" (first results))
       (assert-equal "Job 2" (second results))
@@ -23,7 +23,6 @@
 (define-test run-jobs-future-pool-management ()
   "Test management of re-usable futures"
   (let ((pool (cl-threadpool:make-threadpool 2 :name "run-jobs-future-pool-management")))
-    (cl-threadpool:start pool)
     (let ((results
 	   (cl-threadpool:run-jobs
 	    pool
@@ -49,6 +48,7 @@
 	      (lambda() (sleep 1) "Job 33"))))
 
       (cl-threadpool:stop pool)
+      (assert-true (cl-threadpool:pool-stopped-p pool))
 
       (assert-equal 3 (length results))
       (assert-equal "Job 11" (first results))
@@ -62,7 +62,6 @@
 (define-test run-jobs-many-threads ()
   "Test synchronous execution of jobs"
   (let ((pool (cl-threadpool:make-threadpool 10 :name "run-jobs-many-threads")))
-    (cl-threadpool:start pool)
     (let ((results
 	   (cl-threadpool:run-jobs
 	    pool
@@ -71,6 +70,7 @@
 	     (lambda() (sleep 2) "Job 2")
 	     (lambda() (sleep 2) "Job 3")))))
       (cl-threadpool:stop pool)
+      (assert-true (cl-threadpool:pool-stopped-p pool))
       (assert-equal 3 (length results))
       (assert-equal "Job 1" (first results))
       (assert-equal "Job 2" (second results))
@@ -79,7 +79,6 @@
 (define-test run-jobs-few-threads ()
   "Test synchronous execution of jobs"
   (let ((pool (cl-threadpool:make-threadpool 1 :name "run-jobs-few-threads")))
-    (cl-threadpool:start pool)
     (let ((results
 	   (cl-threadpool:run-jobs
 	    pool
@@ -88,6 +87,7 @@
 	     (lambda() (sleep 2) "Job 2")
 	     (lambda() (sleep 2) "Job 3")))))
       (cl-threadpool:stop pool)
+      (assert-true (cl-threadpool:pool-stopped-p pool))
       (assert-equal 3 (length results))
       (assert-equal "Job 1" (first results))
       (assert-equal "Job 2" (second results))
@@ -96,7 +96,6 @@
 (define-test run-jobs-pressure-1 ()
   "Test synchronous execution of jobs with high pressure on the queue"
   (let ((pool (cl-threadpool:make-threadpool 5 :name "run-jobs-pressure-1")) (job-count 1000))
-    (cl-threadpool:start pool)
     (let ((jobs nil) (expected-job-results (make-array job-count)))
       (dotimes (i job-count)
 	(let ((job-result (format nil "job-result-~a" i)))
@@ -105,13 +104,13 @@
       
       (let ((results (list-to-array (cl-threadpool:run-jobs pool (reverse jobs)))))
 	(cl-threadpool:stop pool)
+	(assert-true (cl-threadpool:pool-stopped-p pool))
 	(dotimes (i job-count)
 	  (assert-equal (elt expected-job-results i) (elt results i)))))))
 
 (define-test run-jobs-pressure-2 ()
   "Test synchronous execution of jobs with high pressure on the queue"
   (let ((pool (cl-threadpool:make-threadpool 2 :name "run-jobs-pressure-2")) (job-count 10))
-    (cl-threadpool:start pool)
     (let ((jobs nil) (expected-job-results (make-array job-count)))
       (dotimes (i job-count)
 	(let ((job-result (format nil "job-result-~a" i)))
@@ -121,13 +120,13 @@
       
       (let ((results (list-to-array (cl-threadpool:run-jobs pool (reverse jobs)))))
 	(cl-threadpool:stop pool)
+	(assert-true (cl-threadpool:pool-stopped-p pool))
 	(dotimes (i job-count)
 	  (assert-equal (elt expected-job-results i) (elt results i)))))))
 
 (define-test run-jobs-execution-error ()
   "Run a batch of jobs and test that job execution errors are properly handled."
   (let ((pool (cl-threadpool:make-threadpool 2 :name "error-handling-run-jobs")))
-    (cl-threadpool:start pool)
     (let ((catched-error nil))
       (handler-case
 	  (cl-threadpool:run-jobs
@@ -141,6 +140,7 @@
 	    (setf catched-error err))))
       (let ((l (cl-threadpool:queue-size pool)))
 	(cl-threadpool:stop pool)
+	(assert-true (cl-threadpool:pool-stopped-p pool))
 	(assert-true catched-error)
 	(assert-true (typep
 		      catched-error
@@ -153,7 +153,6 @@
   (let ((pool-to-stop (cl-threadpool:make-threadpool 1 :name "run-jobs-stop-pool-1"))
 	(got-cancellation-error nil)
 	(lock (bt:make-lock "run-jobs-stop-pool-1-lock")))
-    (cl-threadpool:start pool-to-stop)
     (bt:make-thread (lambda()
 		      (bt:acquire-lock lock) 
 		      (handler-case
@@ -170,9 +169,9 @@
 				(setf got-cancellation-error t)))))
 		      (bt:release-lock lock)))
     (sleep 3) ;; Assume that tread is running after x seconds
-    (let ((stopped-result (cl-threadpool:stop pool-to-stop :timeout-seconds 20)))
+    (cl-threadpool:stop pool-to-stop :timeout-seconds 20)
       (bt:acquire-lock lock) 
       (bt:release-lock lock) 
-      (assert-true (not stopped-result))
-      (assert-true got-cancellation-error))))
+      (assert-true (cl-threadpool:pool-stopped-p pool-to-stop))
+      (assert-true got-cancellation-error)))
 
