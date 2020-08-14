@@ -1,6 +1,5 @@
 (defpackage :cl-threadpool
   (:use :cl)
-  (:export :threadpool-error)
   (:export :threadpool-execution-error)
   (:export :threadpool-cancellation-error)
   (:export :make-threadpool)

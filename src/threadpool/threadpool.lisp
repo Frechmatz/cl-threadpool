@@ -28,10 +28,6 @@
 ;; Errors
 ;;
 
-(define-condition threadpool-error (error)
-  ((text :initarg :text :reader text))
-  (:documentation "The default condition that is signalled by thread pools"))
-
 (define-condition threadpool-execution-error (error)
   ((report :initarg :report :reader report))
   (:documentation
@@ -71,7 +67,7 @@
 
 (defun assert-futurep (obj)
   (if (not (futurep obj))
-      (error 'threadpool-error :text "Object is not an instance of future")))
+      (error "Object is not an instance of future")))
 
 (defun future-state-done-p (future-state)
   (or (eq future-state :set) (eq future-state :rejected) (eq future-state :cancelled)))
@@ -256,11 +252,11 @@
 
 (defun assert-threadpoolp (obj)
   (if (not (threadpoolp obj))
-      (error 'threadpool-error :text "Object is not an instance of threadpool")))
+      (error "Object is not an instance of threadpool")))
 
 (defun assert-jobp (job)
   (if (not (functionp job))
-      (error 'threadpool-error :text "Job must be a function")))
+      (error "Job must be a function")))
   
 (defun queue-size (pool)
   "Get the current length of the job queue."
@@ -297,11 +293,10 @@
 	  (if (pool-state-stopped-p pool-state)
 	      (progn
 		(bt:release-lock (slot-value pool 'lock))
-		(error 'threadpool-error
-		       :text (format
-			      nil
-			      "Worker thread ~a: Pool stopped but worker thread still alive"
-			      thread-id))))
+		(error (format
+			nil
+			"Worker thread ~a: Pool stopped but worker thread still alive"
+			thread-id))))
 	  (if future
 	      (let ((future-state nil) (future-job nil))
 		(bt:with-lock-held ((slot-value future 'lock))
@@ -312,8 +307,7 @@
 		  ((future-state-cancelled-p future-state)
 		   (log-info "Worker thread ~a: Skipping cancelled job" thread-id))
 		  ((future-state-done-p future-state)
-		   (error 'threadpool-error
-			  :text (format nil "Worker thread ~a: Job already done." thread-id)))
+		   (error (format nil "Worker thread ~a: Job already done." thread-id)))
 		  ((or (pool-state-stopping-p pool-state))
 		   ;; When pool is to be stopped then cancel job
 		   (log-info "Worker thread ~a: Pool is stopping. Cancelling job" thread-id)
@@ -404,11 +398,10 @@
    See also pool-stopped-p"
   (assert-threadpoolp pool)
   (if (worker-thread-p pool)
-      (error 'threadpool-error
-	     :text (format
-		    nil
-		    "Thread pool cannot be stopped by a worker thread: ~a"
-		    (slot-value pool 'name))))
+      (error (format
+	      nil
+	      "Thread pool cannot be stopped by a worker thread: ~a"
+	      (slot-value pool 'name))))
   (bt:acquire-lock (slot-value pool 'lock))
   (cond
     ((or (eq :stopped (slot-value pool 'state)) (eq :stopping (slot-value pool 'state)))
@@ -442,9 +435,9 @@
   (bt:with-lock-held ((slot-value pool 'lock))
     (let ((s (slot-value pool 'state)))
       (if (or (eq s :stopping) (eq s :stopped))
-	  (error 'threadpool-error
-		 :text (format nil "Cannot add job to stopping or stopped thread pool: ~a"
-			       (slot-value pool 'name))))
+	  (error (format nil
+			 "Cannot add job to stopping or stopped thread pool: ~a"
+			 (slot-value pool 'name))))
       (let ((future (get-future (slot-value pool 'future-factory))))
 	(assert-futurep future)
 	(setf (slot-value future 'job) job)

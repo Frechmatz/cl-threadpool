@@ -23,8 +23,7 @@
       (handler-case 
 	  (cl-threadpool:run-jobs pool (list (lambda ())))
 	(error (err) (setf got-error err)))
-      (assert-true got-error)
-      (assert-true (typep got-error 'cl-threadpool:threadpool-error)))))
+      (assert-true got-error))))
 
 (define-test pool-state-stop-instantiated-2 ()
   "Stop pool two times after it has been instantiated but not started (this is allowed)"
@@ -57,8 +56,7 @@
 	   (error (err) (setf got-error err))))))
       (cl-threadpool:stop pool)
       (assert-true (cl-threadpool:pool-stopped-p pool))
-      (assert-true got-error)
-      (assert-true (typep got-error 'cl-threadpool:threadpool-error)))))
+      (assert-true got-error))))
 
 (define-test pool-state-worker-thread-p-1 ()
   (let ((pool (cl-threadpool:make-threadpool 5 :name "pool-state-worker-thread-p-1")))
