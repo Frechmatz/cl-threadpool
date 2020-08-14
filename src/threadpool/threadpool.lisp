@@ -31,23 +31,22 @@
 (define-condition threadpool-execution-error (error)
   ((report :initarg :report :reader report))
   (:documentation
-   "Represents unhandled errors thrown by a job. Initialization arguments:
-    :report An object representing the error. This object is typically not an instance 
-    of error."))
+   "This condition is signalled when the result of a job is requested but the job has
+    signalled a condition during its execution."))
 
 (defparameter *job-error-to-report*
   (lambda (err)
     (list :message (format nil "~a" err)))
-  "Function to convert an unhandled job error to an object that
+  "Function to convert an unhandled job execution condition to an object that
    is passed as :report property to the instantiation function of
    threadpool-execution-error. The function is called in the context
-   of a worker thread. The final threadpool-execution-error error will 
-   typically be thrown in a different thread context.")
+   of a worker thread.")
 
 (define-condition threadpool-cancellation-error (error)
   ((text :initarg :text :reader text))
   (:documentation
-   "This error is signalled when the result of a job is requested but the job has been cancelled."))
+   "This condition is signalled when the result of a job is requested but the 
+    job has been cancelled."))
 
 ;;
 ;; Future
@@ -59,7 +58,8 @@
    (state :initform :pending)
    (job :initform nil :documentation "Function to be invoked by a worker thread.")
    (value :initform nil))
-  (:documentation "Represents the result of a job."))
+  (:documentation "A Future represents the result of a job. Futures provide functions
+   to get the result of a job, to check if the job has been completed and to cancel a job."))
 
 (defun futurep (obj)
   "Returns t if the given object represents a future."
@@ -76,8 +76,8 @@
   (eq future-state :cancelled))
 
 (defun future-done-p (future)
-  "Returns t if the job has completed. A job is completed when it has
-   normally terminated, thrown an error or been cancelled."
+  "Returns t if the job is done. A job is done when it has
+   succesfully completed, signalled a condition or has been cancelled."
   (assert-futurep future)
   (bt:with-lock-held ((slot-value future 'lock))
     (future-state-done-p (slot-value future 'state))))
@@ -87,12 +87,6 @@
   (assert-futurep future)
   (bt:with-lock-held ((slot-value future 'lock))
     (future-state-cancelled-p (slot-value future 'state))))
-
-(defun reset-future (future)
-  (setf (slot-value future 'state) :pending)
-  (setf (slot-value future 'value) nil)
-  (setf (slot-value future 'job) nil)
-  nil)
 
 (defun complete-future (future value)
   "Sets the value of a successfully completed future. If the future 
@@ -118,11 +112,7 @@
   nil)
 
 (defun cancel-future (future)
-  "Sets a future to cancelled. Does nothing when the future is already done.
-   The function has the following arguments:
-   <ul>
-    <li>future The future.</li>
-   </ul>"
+  "Cancels a job. The function does nothing when the job is already done."
   (bt:with-lock-held ((slot-value future 'lock))
     (let ((state (slot-value future 'state)))
       (if (not (future-state-done-p state))
@@ -157,8 +147,13 @@
     nil)
 
 (defun future-value (future)
-  "Get the result of the job. If the result is already available it will immediately 
-   be returned. Otherwise the function blocks on the completion of the job."
+  "Get the result of a job. If the result is already available it will immediately 
+   be returned. Otherwise the function blocks on the completion of the job.
+   The function may signal one of the following conditions:
+   <ul>
+   <li>threadpool-execution-error The job has signalled a condition.</li>
+   <li>threadpool-cancellation-error The job has been cancelled.</li>
+   </ul>"
   (assert-futurep future)
   (flet ((release-lock-and-return-value ()
 	   (bt:release-lock (slot-value future 'lock))
@@ -225,7 +220,9 @@
 (defmethod put-future ((future-factory-instance future-factory) future)
   (assert-futurep future)
   (bt:with-lock-held ((slot-value future-factory-instance 'lock))
-    (reset-future future)
+    (setf (slot-value future 'state) :pending)
+    (setf (slot-value future 'value) nil)
+    (setf (slot-value future 'job) nil)
     (push future (slot-value future-factory-instance 'pool))
     nil))
 
@@ -259,13 +256,13 @@
       (error "Job must be a function")))
   
 (defun queue-size (pool)
-  "Get the current length of the job queue."
+  "Returns the current length of the job queue."
   (assert-threadpoolp pool)
   (bt:with-lock-held ((slot-value pool 'lock))
     (queues:qsize (slot-value pool 'job-queue))))
 
 (defun pool-name (pool)
-  "Get the name of the pool."
+  "Returns the name of the pool."
   (assert-threadpoolp pool)
   (bt:with-lock-held ((slot-value pool 'lock))
     (slot-value pool 'name)))
@@ -337,9 +334,12 @@
    :name thread-id))
 
 (defun make-threadpool (size &key (name nil))
-  "Create a thread pool.
-   name -- Name of the pool.
-   size -- Number of worker threads."
+  "Instantiates a thread pool. The function has the following arguments:
+   <ul>
+   <li>size Number of worker threads.</li>
+   <li>name Name of the pool.</li>
+   </ul>
+   Returns the pool."
   (let ((pool (make-instance 'threadpool :name name :size size)))
     (bt:with-lock-held ((slot-value pool 'lock))
       (log-info "Starting thread pool ~a..." (slot-value pool 'name))
@@ -450,25 +450,27 @@
 	future))))
 
 (defun add-job (pool job)
-  "Add a job to the pool. 
-   pool -- A threadpool instance as created by make-threadpool.   
-   job -- A function with zero arguments. A job is supposed to handle all errors.
-   * The pool must have been started.
-   * The pool must not be in stopping state.
-   * The pool must not be in stopped state.
+  "Adds a job to the pool. The function has the following arguments:
+   <ul> 
+   <li>pool A thread pool.</li>
+   <li>job A function with no arguments.</li>
+   </ul>
    Returns a future."
   (add-job-impl pool job))
 
 (defun run-jobs (pool jobs)
-  "Synchronously run a list of jobs and return their results. Blocks the current thread until 
-   all jobs have been completed. Jobs are supposed to handle all errors. In the case
-   of unhandled job errors or job cancellations this function still synchronizes on 
-   the completion of all jobs and after that re-throws the first error it has catched.
-   - pool: The threadpool
-   - jobs: A list of jobs. Each job is represented by a function with no arguments.
-   Returns an ordered list of the results that the jobs have returned.
-   Signals the following errors:
-   - threadpool-execution-error When a job has thrown an unhandled error."
+  "Synchronously executes a batch of jobs and returns their results. Blocks until 
+   all jobs are done. The function has the following arguments:
+   <ul>
+   <li>pool A thread pool</li>
+   <li>jobs A list of jobs. Each job is represented by a function with no arguments.</li>
+   </ul>
+   May signal one of the following conditions:
+   <ul>
+   <li>threadpool-execution-error When a job has signalled a condition.</li>
+   <li>threadpool-cancellation-error When a job has been cancelled.</li>
+   </ul>
+   Returns an ordered list of job results."
   (assert-threadpoolp pool)
   (if (not (listp jobs))
       (error "jobs must be a list"))
