@@ -60,7 +60,7 @@
 (defclass future ()
   ((lock :initform (bt:make-lock "future-lock"))
    (cv :initform (bt:make-condition-variable))
-   (state :initform :pending) ;; TODO Think about initial state
+   (state :initform :pending)
    (job :initform nil :documentation "Function to be invoked by a worker thread.")
    (value :initform nil))
   (:documentation "Represents the result of a job."))
@@ -76,6 +76,9 @@
 (defun future-state-done-p (future-state)
   (or (eq future-state :set) (eq future-state :rejected) (eq future-state :cancelled)))
 
+(defun future-state-cancelled-p (future-state)
+  (eq future-state :cancelled))
+
 (defun future-done-p (future)
   "Returns t if the job has completed. A job is completed when it has
    normally terminated, thrown an error or been cancelled."
@@ -83,14 +86,22 @@
   (bt:with-lock-held ((slot-value future 'lock))
     (future-state-done-p (slot-value future 'state))))
 
+(defun future-cancelled-p (future)
+  "Returns t if the job has been cancelled."
+  (assert-futurep future)
+  (bt:with-lock-held ((slot-value future 'lock))
+    (future-state-cancelled-p (slot-value future 'state))))
+
 (defun reset-future (future)
   (setf (slot-value future 'state) :pending)
   (setf (slot-value future 'value) nil)
   (setf (slot-value future 'job) nil)
   nil)
 
-(defun set-future-completed (future value)
-  "Sets the value of a successfully completed future. 
+(defun complete-future (future value)
+  "Sets the value of a successfully completed future. If the future 
+   has already been cancelled the value is ignored and the future remains cancelled.
+   If the future is already completed but not cancelled the function signals an error.
    The function has the following arguments:
    <ul>
     <li>future The future.</li>
@@ -98,15 +109,19 @@
    </ul>"
   (bt:with-lock-held ((slot-value future 'lock))
     (let ((state (slot-value future 'state)))
-      (if (future-state-done-p state)
-	  (error "Internal error: Cannot complete an already done future"))
-      (setf (slot-value future 'value) value)
-      (setf (slot-value future 'state) :set)
-      (setf (slot-value future 'job) nil)
-      (bt:condition-notify (slot-value future 'cv))))
+      (cond
+	((future-state-cancelled-p state)
+	 nil)
+	((future-state-done-p state)
+	 (error "Internal error: Cannot complete an already completed future"))
+	(t
+	 (setf (slot-value future 'value) value)
+	 (setf (slot-value future 'state) :set)
+	 (setf (slot-value future 'job) nil)
+	 (bt:condition-notify (slot-value future 'cv))))))
   nil)
 
-(defun set-future-cancelled (future)
+(defun cancel-future (future)
   "Sets a future to cancelled. Does nothing when the future is already done.
    The function has the following arguments:
    <ul>
@@ -122,8 +137,10 @@
 	   (bt:condition-notify (slot-value future 'cv)))))
     nil))
 
-(defun set-future-rejected (future report)
-  "Sets a future to rejected. This happens when a job signals an unhandled condition. 
+(defun reject-future (future report)
+  "Sets a future to rejected. This happens when a job signals an unhandled condition.
+   Does nothing when the future is cancelled. Signals an error when the future
+   has already completed or rejected.
    The function has the following arguments:
    <ul>
     <li>future The future.</li>
@@ -131,14 +148,17 @@
    </ul>"
   (bt:with-lock-held ((slot-value future 'lock))
     (let ((state (slot-value future 'state)))
-      (if (future-state-done-p state)
-	  (error "Internal error: Cannot reject an already done future"))
-      (setf (slot-value future 'value) report)
-      (setf (slot-value future 'state) :rejected)
-      (setf (slot-value future 'job) nil)
-      (bt:condition-notify (slot-value future 'cv))))
+      (cond
+	((future-state-cancelled-p state)
+	 nil)
+	((future-state-done-p state)
+	 (error "Internal error: Cannot reject an already done future"))
+	(t
+	 (setf (slot-value future 'value) report)
+	 (setf (slot-value future 'state) :rejected)
+	 (setf (slot-value future 'job) nil)
+	 (bt:condition-notify (slot-value future 'cv))))))
     nil)
-
 
 (defun future-value (future)
   "Get the result of the job. If the result is already available it will immediately 
@@ -254,12 +274,18 @@
   (bt:with-lock-held ((slot-value pool 'lock))
     (slot-value pool 'name)))
 
+(defun pool-state-stopping-p (pool-state)
+    (eq pool-state :stopping))
+
+(defun pool-state-stopped-p (pool-state)
+    (eq pool-state :stopped))
+
 (defun pool-stopped-p (pool)
   "Returns t if the pool has successfully been stopped."
   (assert-threadpoolp pool)
   (bt:with-lock-held ((slot-value pool 'lock))
-    (eq (slot-value pool 'state) :stopped)))
-  
+    (pool-state-stopped-p (slot-value pool 'state))))
+
 (defun make-worker-thread (pool thread-id)
   (bt:make-thread
    (lambda ()
@@ -267,30 +293,46 @@
      (bt:acquire-lock (slot-value pool 'lock) t)
      (loop ;; Entry point of loop body assumes that pool lock is set
 	(let ((future (queues:qpop (slot-value pool 'job-queue)))
-	      (pool-is-stopping (eq (slot-value pool 'state) :stopping)))
-	  (if future
+	      (pool-state (slot-value pool 'state)))
+	  (if (pool-state-stopped-p pool-state)
 	      (progn
 		(bt:release-lock (slot-value pool 'lock))
-		(if pool-is-stopping
-		    (progn
-		      ;; When pool is to be stopped then cancel all pending jobs
-		      (log-info "Pool is stopping. Cancelling job")
-		      (set-future-cancelled future))
-		    (progn
-		      (handler-case
-			  (set-future-completed future (funcall (slot-value future 'job)))
-			(condition (c)
-			  (log-error "Unhandled job error: ~a" c)
-			  (set-future-rejected future (funcall *job-error-to-report* c))))))
+		(error 'threadpool-error
+		       :text (format
+			      nil
+			      "Worker thread ~a: Pool stopped but worker thread still alive"
+			      thread-id))))
+	  (if future
+	      (let ((future-state nil) (future-job nil))
+		(bt:with-lock-held ((slot-value future 'lock))
+		  (setf future-state (slot-value future 'state))
+		  (setf future-job (slot-value future 'job)))
+		(bt:release-lock (slot-value pool 'lock))
+		(cond
+		  ((future-state-cancelled-p future-state)
+		   (log-info "Worker thread ~a: Skipping cancelled job" thread-id))
+		  ((future-state-done-p future-state)
+		   (error 'threadpool-error
+			  :text (format nil "Worker thread ~a: Job already done." thread-id)))
+		  ((or (pool-state-stopping-p pool-state))
+		   ;; When pool is to be stopped then cancel job
+		   (log-info "Worker thread ~a: Pool is stopping. Cancelling job" thread-id)
+		   (cancel-future future))
+		  (t ;; Execute job
+		   (handler-case
+		       (complete-future future (funcall future-job))
+		     (condition (c)
+		       (log-error "Worker thread ~a: Unhandled job error: ~a" thread-id c)
+		       (reject-future future (funcall *job-error-to-report* c))))))
 		(bt:acquire-lock (slot-value pool 'lock) t))
 	      (progn
-		(if pool-is-stopping
-		    ;; No Job and pool is stopping => Quit loop and let thread end
-		    (progn
-		      (bt:release-lock (slot-value pool 'lock))
-		      (return))
-		    ;; No Job -> Wait on Job Queue
-		    (bt:condition-wait (slot-value pool 'cv) (slot-value pool 'lock)))))))
+		(cond
+		  ((pool-state-stopping-p pool-state)
+		   ;; No Job and pool is stopping => Quit loop and let thread end
+		   (bt:release-lock (slot-value pool 'lock))
+		   (return))
+		  (t ;; No Job -> Wait on Job Queue
+		   (bt:condition-wait (slot-value pool 'cv) (slot-value pool 'lock))))))))
      ;; Remove thread from pool
      (bt:with-lock-held ((slot-value pool 'lock))
        (setf (slot-value pool 'threads)

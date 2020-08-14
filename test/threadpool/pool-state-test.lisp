@@ -98,3 +98,14 @@
       (assert-true (cl-threadpool:pool-stopped-p pool))
       (assert-equal 0 l))))
 
+(define-test pool-state-handle-cancelled-jobs ()
+  "Test that the pool will properly stop when the job queue contains cancelled jobs."
+  (let ((pool (cl-threadpool:make-threadpool 1 :name "pool-state-handle-cancelled-jobs")))
+    (let ((future-1 (cl-threadpool:add-job pool (lambda() (sleep 5))))
+	  (future-2 (cl-threadpool:add-job pool (lambda() (sleep 5))))
+	  (future-3 (cl-threadpool:add-job pool (lambda() (sleep 5)))))
+      (cl-threadpool:cancel-future future-1)
+      (cl-threadpool:cancel-future future-2)
+      (cl-threadpool:cancel-future future-3)
+      (cl-threadpool:stop pool)
+      (assert-true (cl-threadpool:pool-stopped-p pool)))))

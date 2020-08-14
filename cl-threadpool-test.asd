@@ -20,7 +20,7 @@
 				       (:file "logger")))
 		 (:module "test/threadpool"
 			  :serial t
-			  :components (
+			  :components ((:file "future-test")
 				       (:file "pool-state-test")
 				       (:file "add-job-test")
 				       (:file "run-jobs-test")
