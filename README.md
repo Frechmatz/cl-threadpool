@@ -2,8 +2,8 @@
 
 A thread pool implemented in Common Lisp.
 
-A thread pool consists of a bunch of worker threads and a job queue. The library provides an
-easy to use API with a focus on blocking execution of job batches.
+A thread pool consists of a bunch of worker threads and a job queue. The focus of this
+library is to provide an API that is as simple as possible.
 
 Change-Log
 ----------
@@ -35,15 +35,23 @@ removal of features that have been identified as not being useful.
 
 ## Version 3.0.0
 
+Version 3.0.0 shall be the last version which introduces breaking changes.
+
 ### Breaking changes
 
-* Removed start (pool) 
-* stop (pool) No longer returns an indicator if all threads have terminated.
+* Removed cl-threadpool:start. A threadpool is now ready to use immediately after its instantiation.
+* Removed condition threadpool-error. Pool usage errors and internal errors are now
+  represented by simple-error.
+* cl-threadpool:stop no longer returns an indicator if the pool has successfully been stopped. This
+must now explicitly be checked via cl-threadpool:pool-stopped-p.
+* Error handling of jobs has been reworked. The threadpool now catches all unhandled conditions of jobs. If a job has signalled a condition and its result is requested, a job-execution-error is signalled by the threadpool.
 
 ### New features
 
-* Error handling: Worker threads catch all unhandled errors
-* add-job is back.
+* Introduces Futures. A future represents the result of an asynchronous operation. 
+* Added add-job Adds a job to the queue and returns a future.
+* Added job-value, cancel-job, job-done-p, job-cancelled-p.
+* Added conditions job-execution-error and job-cancellation-error.
 * Added pool-stopped-p
 
 Installation
