@@ -59,7 +59,8 @@
    (job :initform nil :documentation "Function to be invoked by a worker thread.")
    (value :initform nil))
   (:documentation "A Future represents the result of a job. Futures provide functions
-   to get the result of a job, to check if the job has been completed and to cancel a job."))
+   to get the result of a job, to check if the job has been completed or cancelled 
+   and to cancel a job."))
 
 (defun futurep (obj)
   "Returns t if the given object represents a future."
