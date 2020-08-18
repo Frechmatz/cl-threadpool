@@ -57,7 +57,7 @@
     (cl-threadpool::complete-job future "RESULT")
     (assert-true
      (future-test-catch-invocation-error
-      (lambda() (cl-threadpool::reject-job future "REPORT"))))
+      (lambda() (cl-threadpool::reject-job future "POOL" "THREAD-ID" "REPORT"))))
     (assert-equal "RESULT" (cl-threadpool:job-value future))))
 
 ;;
@@ -72,43 +72,45 @@
 (define-test future-rejected ()
   "rejected"
   (let ((future (make-instance 'cl-threadpool::future)))
-    (cl-threadpool::reject-job future "REPORT")
-    (assert-true (typep
-		  (future-test-catch-get-value-error future)
-		  'cl-threadpool:threadpool-execution-error))))
+    (cl-threadpool::reject-job future "POOL" "THREAD-ID" "REPORT")
+    (let ((err (future-test-catch-get-value-error future)))
+      (assert-true (typep err 'cl-threadpool:job-execution-error))
+      (assert-equal "POOL" (cl-threadpool:job-execution-error-pool-name err))
+      (assert-equal "THREAD-ID" (cl-threadpool:job-execution-error-thread-id err))
+      (assert-equal "REPORT" (cl-threadpool:job-execution-error-message err)))))
 
 (define-test future-rejected-rejected ()
   "rejected-rejected"
   (let ((future (make-instance 'cl-threadpool::future)))
-    (cl-threadpool::reject-job future "REPORT-1")
+    (cl-threadpool::reject-job future "POOL" "THREAD-ID" "REPORT-1")
     (assert-true
      (future-test-catch-invocation-error
-      (lambda() (cl-threadpool::reject-job future "REPORT-2"))))
+      (lambda() (cl-threadpool::reject-job future "POOL" "THREAD-ID" "REPORT-2"))))
     (assert-true (typep
 		  (future-test-catch-get-value-error future)
-		  'cl-threadpool:threadpool-execution-error))))
+		  'cl-threadpool:job-execution-error))))
 
 (define-test future-rejected-completed ()
   "rejected-completed"
   (let ((future (make-instance 'cl-threadpool::future)))
-    (cl-threadpool::reject-job future "REPORT")
+    (cl-threadpool::reject-job future "POOL" "THREAD-ID" "REPORT")
     (assert-true
      (future-test-catch-invocation-error
       (lambda() (cl-threadpool::complete-job future "RESULT"))))
     (assert-true (typep
 		  (future-test-catch-get-value-error future)
-		  'cl-threadpool:threadpool-execution-error))))
+		  'cl-threadpool:job-execution-error))))
 
 (define-test future-rejected-cancelled ()
   "rejected-cancelled"
   (let ((future (make-instance 'cl-threadpool::future)))
-    (cl-threadpool::reject-job future "REJECTED")
+    (cl-threadpool::reject-job future "POOL" "THREAD-ID" "REJECTED")
     (assert-true
      (not (future-test-catch-invocation-error
 	   (lambda() (cl-threadpool:cancel-job future)))))
     (assert-true (typep
 		  (future-test-catch-get-value-error future)
-		  'cl-threadpool:threadpool-execution-error))))
+		  'cl-threadpool:job-execution-error))))
 
 ;;
 ;; Cancelled
@@ -125,7 +127,7 @@
     (cl-threadpool:cancel-job future)
     (assert-true (typep
 		  (future-test-catch-get-value-error future)
-		  'cl-threadpool:threadpool-cancellation-error))))
+		  'cl-threadpool:job-cancellation-error))))
 
 (define-test future-cancelled-cancelled ()
   "cancelled-cancelled"
@@ -137,7 +139,7 @@
     (assert-true
      (typep
       (future-test-catch-get-value-error future)
-      'cl-threadpool:threadpool-cancellation-error))))
+      'cl-threadpool:job-cancellation-error))))
 
 (define-test future-cancelled-completed ()
   "cancelled-completed"
@@ -149,7 +151,7 @@
     (assert-true
      (typep
       (future-test-catch-get-value-error future)
-      'cl-threadpool:threadpool-cancellation-error))))
+      'cl-threadpool:job-cancellation-error))))
 
 (define-test future-cancelled-rejected ()
   "cancelled-rejected"
@@ -157,9 +159,9 @@
     (cl-threadpool:cancel-job future)
     (assert-true
      (not (future-test-catch-invocation-error
-	   (lambda() (cl-threadpool::reject-job future "REPORT")))))
+	   (lambda() (cl-threadpool::reject-job future "POOL" "THREAD-ID" "REPORT")))))
     (assert-true
      (typep
       (future-test-catch-get-value-error future)
-      'cl-threadpool:threadpool-cancellation-error))))
+      'cl-threadpool:job-cancellation-error))))
 

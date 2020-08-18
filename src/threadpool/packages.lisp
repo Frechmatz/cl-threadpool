@@ -1,7 +1,10 @@
 (defpackage :cl-threadpool
   (:use :cl)
-  (:export :threadpool-execution-error)
-  (:export :threadpool-cancellation-error)
+  (:export :job-execution-error)
+  (:export :job-execution-error-pool-name)
+  (:export :job-execution-error-thread-id)
+  (:export :job-execution-error-message)
+  (:export :job-cancellation-error)
   (:export :make-threadpool)
   (:export :threadpoolp)
   (:export :stop)
@@ -15,7 +18,6 @@
   (:export :job-done-p)
   (:export :cancel-job)
   (:export :job-cancelled-p)
-  (:export :*logger*)
-  (:export :*job-error-to-report*))
+  (:export :*logger*))
 
 

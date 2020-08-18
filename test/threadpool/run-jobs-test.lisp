@@ -144,7 +144,7 @@
 	(assert-true catched-error)
 	(assert-true (typep
 		      catched-error
-		      'cl-threadpool:threadpool-execution-error))
+		      'cl-threadpool:job-execution-error))
 	(assert-equal 0 l)))))
 
 (define-test run-jobs-stop-pool-1 ()
@@ -165,7 +165,7 @@
 			(error (err)
 			  (progn
 			    (cl-threadpool::log-info "Got error: ~a" err)
-			    (if (typep err 'cl-threadpool:threadpool-cancellation-error)
+			    (if (typep err 'cl-threadpool:job-cancellation-error)
 				(setf got-cancellation-error t)))))
 		      (bt:release-lock lock)))
     (sleep 3) ;; Assume that tread is running after x seconds

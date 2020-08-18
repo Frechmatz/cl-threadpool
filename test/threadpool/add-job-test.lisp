@@ -50,4 +50,4 @@
       (assert-true catched-error)
       (assert-true (typep
 		    catched-error
-		    'cl-threadpool:threadpool-execution-error)))))
+		    'cl-threadpool:job-execution-error)))))
