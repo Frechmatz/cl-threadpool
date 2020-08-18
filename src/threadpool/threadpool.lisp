@@ -304,12 +304,12 @@
 		(bt:release-lock (slot-value pool 'lock))
 		(cond
 		  ((future-state-cancelled-p future-state)
-		   (log-info "Worker thread ~a: Skipping cancelled job" thread-id))
+		   (log-info "Worker thread ~a: Skipping cancelled job." thread-id))
 		  ((future-state-done-p future-state)
 		   (error (format nil "Worker thread ~a: Job already done." thread-id)))
 		  ((or (pool-state-stopping-p pool-state))
 		   ;; When pool is to be stopped then cancel job
-		   (log-info "Worker thread ~a: Pool is stopping. Cancelling job" thread-id)
+		   (log-info "Worker thread ~a: Pool is stopping. Cancelling job." thread-id)
 		   (cancel-job future))
 		  (t ;; Execute job
 		   (handler-case
@@ -356,7 +356,7 @@
 		 :thread (make-worker-thread pool thread-id))
 		(slot-value pool 'threads))))
       (setf (slot-value pool 'state) :running)
-      (log-info "Thread pool ~a has been started" (slot-value pool 'name))
+      (log-info "Thread pool ~a has been started." (slot-value pool 'name))
       pool)))
 
 (defun worker-thread-p (pool)
@@ -427,7 +427,7 @@
 		   nil
 		   (progn
 		     (setf (slot-value pool 'state) :stopped)
-		     (log-info "Pool ~a has stopped" (slot-value pool 'name))
+		     (log-info "Pool ~a has stopped." (slot-value pool 'name))
 		     t))))
 	   (progn
 	     (log-info
