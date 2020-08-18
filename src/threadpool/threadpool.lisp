@@ -76,21 +76,21 @@
 (defun future-state-cancelled-p (future-state)
   (eq future-state :cancelled))
 
-(defun future-done-p (future)
+(defun job-done-p (future)
   "Returns t if the job is done. A job is done when it has
    succesfully completed, signalled a condition or has been cancelled."
   (assert-futurep future)
   (bt:with-lock-held ((slot-value future 'lock))
     (future-state-done-p (slot-value future 'state))))
 
-(defun future-cancelled-p (future)
+(defun job-cancelled-p (future)
   "Returns t if the job has been cancelled."
   (assert-futurep future)
   (bt:with-lock-held ((slot-value future 'lock))
     (future-state-cancelled-p (slot-value future 'state))))
 
-(defun complete-future (future value)
-  "Sets the value of a successfully completed future. If the future 
+(defun complete-job (future value)
+  "Sets the value of a successfully completed job. If the future 
    has already been cancelled the value is ignored and the future remains cancelled.
    If the future is already completed but not cancelled the function signals an error.
    The function has the following arguments:
@@ -112,7 +112,7 @@
 	 (bt:condition-notify (slot-value future 'cv))))))
   nil)
 
-(defun cancel-future (future)
+(defun cancel-job (future)
   "Cancels a job. The function does nothing when the job is already done."
   (bt:with-lock-held ((slot-value future 'lock))
     (let ((state (slot-value future 'state)))
@@ -124,8 +124,8 @@
 	   (bt:condition-notify (slot-value future 'cv)))))
     nil))
 
-(defun reject-future (future report)
-  "Sets a future to rejected. This happens when a job signals an unhandled condition.
+(defun reject-job (future report)
+  "Sets a job to rejected. This happens when a job signals an unhandled condition.
    Does nothing when the future is cancelled. Signals an error when the future
    has already completed or rejected.
    The function has the following arguments:
@@ -147,7 +147,7 @@
 	 (bt:condition-notify (slot-value future 'cv))))))
     nil)
 
-(defun future-value (future)
+(defun job-value (future)
   "Get the result of a job. If the result is already available it will immediately 
    be returned. Otherwise the function blocks on the completion of the job.
    The function may signal one of the following conditions:
@@ -159,7 +159,7 @@
   (flet ((release-lock-and-return-value ()
 	   (bt:release-lock (slot-value future 'lock))
 	   ;; We can safely access state and value without having a lock set,
-	   ;; because set-future-value will prevent any changes.
+	   ;; because complete-job will prevent any changes.
 	   (let ((state (slot-value future 'state)) (value (slot-value future 'value)))
 	     (cond
 	       ((eq state :set)
@@ -309,13 +309,13 @@
 		  ((or (pool-state-stopping-p pool-state))
 		   ;; When pool is to be stopped then cancel job
 		   (log-info "Worker thread ~a: Pool is stopping. Cancelling job" thread-id)
-		   (cancel-future future))
+		   (cancel-job future))
 		  (t ;; Execute job
 		   (handler-case
-		       (complete-future future (funcall future-job))
+		       (complete-job future (funcall future-job))
 		     (condition (c)
 		       (log-error "Worker thread ~a: Unhandled job error: ~a" thread-id c)
-		       (reject-future future (funcall *job-error-to-report* c))))))
+		       (reject-job future (funcall *job-error-to-report* c))))))
 		(bt:acquire-lock (slot-value pool 'lock) t))
 	      (progn
 		(cond
@@ -482,7 +482,7 @@
 	(job-results nil))
     (dolist (future futures)
       (handler-case
-	  (push (future-value future) job-results)
+	  (push (job-value future) job-results)
 	(condition (c)
 	  (if (not job-error) (setf job-error c))))
       ;; We are owning the futures here and can put them back into the pool.

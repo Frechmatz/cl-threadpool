@@ -5,7 +5,7 @@
 (defun future-test-catch-get-value-error (future)
   (let ((catched-error nil))
     (handler-case
-	(cl-threadpool:future-value future)
+	(cl-threadpool:job-value future)
       (error (err)
 	(setf catched-error err)))
     catched-error))
@@ -30,35 +30,35 @@
 (define-test future-completed ()
   "completed"
   (let ((future (make-instance 'cl-threadpool::future)))
-    (cl-threadpool::complete-future future "RESULT")
-    (assert-equal "RESULT" (cl-threadpool:future-value future))))
+    (cl-threadpool::complete-job future "RESULT")
+    (assert-equal "RESULT" (cl-threadpool:job-value future))))
 
 (define-test future-completed-completed ()
   "completed-completed"
   (let ((future (make-instance 'cl-threadpool::future)))
-    (cl-threadpool::complete-future future "RESULT-1")
+    (cl-threadpool::complete-job future "RESULT-1")
     (assert-true
      (future-test-catch-invocation-error
-      (lambda() (cl-threadpool::complete-future future "RESULT-2"))))
-    (assert-equal "RESULT-1" (cl-threadpool:future-value future))))
+      (lambda() (cl-threadpool::complete-job future "RESULT-2"))))
+    (assert-equal "RESULT-1" (cl-threadpool:job-value future))))
 
 (define-test future-completed-cancelled ()
   "completed-cancelled"
   (let ((future (make-instance 'cl-threadpool::future)))
-    (cl-threadpool::complete-future future "RESULT")
+    (cl-threadpool::complete-job future "RESULT")
     (assert-true
      (not (future-test-catch-invocation-error
-	   (lambda() (cl-threadpool:cancel-future future)))))
-    (assert-equal "RESULT" (cl-threadpool:future-value future))))
+	   (lambda() (cl-threadpool:cancel-job future)))))
+    (assert-equal "RESULT" (cl-threadpool:job-value future))))
 
 (define-test future-completed-rejected ()
   "completed-rejected"
   (let ((future (make-instance 'cl-threadpool::future)))
-    (cl-threadpool::complete-future future "RESULT")
+    (cl-threadpool::complete-job future "RESULT")
     (assert-true
      (future-test-catch-invocation-error
-      (lambda() (cl-threadpool::reject-future future "REPORT"))))
-    (assert-equal "RESULT" (cl-threadpool:future-value future))))
+      (lambda() (cl-threadpool::reject-job future "REPORT"))))
+    (assert-equal "RESULT" (cl-threadpool:job-value future))))
 
 ;;
 ;; Rejected
@@ -72,7 +72,7 @@
 (define-test future-rejected ()
   "rejected"
   (let ((future (make-instance 'cl-threadpool::future)))
-    (cl-threadpool::reject-future future "REPORT")
+    (cl-threadpool::reject-job future "REPORT")
     (assert-true (typep
 		  (future-test-catch-get-value-error future)
 		  'cl-threadpool:threadpool-execution-error))))
@@ -80,10 +80,10 @@
 (define-test future-rejected-rejected ()
   "rejected-rejected"
   (let ((future (make-instance 'cl-threadpool::future)))
-    (cl-threadpool::reject-future future "REPORT-1")
+    (cl-threadpool::reject-job future "REPORT-1")
     (assert-true
      (future-test-catch-invocation-error
-      (lambda() (cl-threadpool::reject-future future "REPORT-2"))))
+      (lambda() (cl-threadpool::reject-job future "REPORT-2"))))
     (assert-true (typep
 		  (future-test-catch-get-value-error future)
 		  'cl-threadpool:threadpool-execution-error))))
@@ -91,10 +91,10 @@
 (define-test future-rejected-completed ()
   "rejected-completed"
   (let ((future (make-instance 'cl-threadpool::future)))
-    (cl-threadpool::reject-future future "REPORT")
+    (cl-threadpool::reject-job future "REPORT")
     (assert-true
      (future-test-catch-invocation-error
-      (lambda() (cl-threadpool::complete-future future "RESULT"))))
+      (lambda() (cl-threadpool::complete-job future "RESULT"))))
     (assert-true (typep
 		  (future-test-catch-get-value-error future)
 		  'cl-threadpool:threadpool-execution-error))))
@@ -102,10 +102,10 @@
 (define-test future-rejected-cancelled ()
   "rejected-cancelled"
   (let ((future (make-instance 'cl-threadpool::future)))
-    (cl-threadpool::reject-future future "REJECTED")
+    (cl-threadpool::reject-job future "REJECTED")
     (assert-true
      (not (future-test-catch-invocation-error
-	   (lambda() (cl-threadpool:cancel-future future)))))
+	   (lambda() (cl-threadpool:cancel-job future)))))
     (assert-true (typep
 		  (future-test-catch-get-value-error future)
 		  'cl-threadpool:threadpool-execution-error))))
@@ -122,7 +122,7 @@
 (define-test future-cancelled ()
   "cancelled"
   (let ((future (make-instance 'cl-threadpool::future)))
-    (cl-threadpool:cancel-future future)
+    (cl-threadpool:cancel-job future)
     (assert-true (typep
 		  (future-test-catch-get-value-error future)
 		  'cl-threadpool:threadpool-cancellation-error))))
@@ -130,10 +130,10 @@
 (define-test future-cancelled-cancelled ()
   "cancelled-cancelled"
   (let ((future (make-instance 'cl-threadpool::future)))
-    (cl-threadpool:cancel-future future)
+    (cl-threadpool:cancel-job future)
     (assert-true
      (not (future-test-catch-invocation-error
-	   (lambda() (cl-threadpool:cancel-future future)))))
+	   (lambda() (cl-threadpool:cancel-job future)))))
     (assert-true
      (typep
       (future-test-catch-get-value-error future)
@@ -142,10 +142,10 @@
 (define-test future-cancelled-completed ()
   "cancelled-completed"
   (let ((future (make-instance 'cl-threadpool::future)))
-    (cl-threadpool:cancel-future future)
+    (cl-threadpool:cancel-job future)
     (assert-true
      (not (future-test-catch-invocation-error
-	   (lambda() (cl-threadpool::complete-future future "RESULT")))))
+	   (lambda() (cl-threadpool::complete-job future "RESULT")))))
     (assert-true
      (typep
       (future-test-catch-get-value-error future)
@@ -154,10 +154,10 @@
 (define-test future-cancelled-rejected ()
   "cancelled-rejected"
   (let ((future (make-instance 'cl-threadpool::future)))
-    (cl-threadpool:cancel-future future)
+    (cl-threadpool:cancel-job future)
     (assert-true
      (not (future-test-catch-invocation-error
-	   (lambda() (cl-threadpool::reject-future future "REPORT")))))
+	   (lambda() (cl-threadpool::reject-job future "REPORT")))))
     (assert-true
      (typep
       (future-test-catch-get-value-error future)
