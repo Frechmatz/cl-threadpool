@@ -346,6 +346,8 @@
    <li>name Name of the pool.</li>
    </ul>
    Returns the pool."
+  (if (<= size 0)
+      (error "Pool size must be at least one."))
   (let ((pool (make-instance 'threadpool :name name :size size)))
     (bt:with-lock-held ((slot-value pool 'lock))
       (log-info "Starting thread pool ~a..." (slot-value pool 'name))
