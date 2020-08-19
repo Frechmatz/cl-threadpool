@@ -343,9 +343,9 @@
   "Instantiates a thread pool. The function has the following arguments:
    <ul>
    <li>size Number of worker threads.</li>
-   <li>name Name of the pool.</li>
+   <li>:name Name of the pool.</li>
    </ul>
-   Returns the pool."
+   Returns a thread pool."
   (if (<= size 0)
       (error "Pool size must be at least one."))
   (let ((pool (make-instance 'threadpool :name name :size size)))
@@ -467,7 +467,7 @@
   (add-job-impl pool job))
 
 (defun run-jobs (pool jobs)
-  "Synchronously executes a batch of jobs and returns their results. Blocks until 
+  "Executes a batch of jobs and returns their results. Blocks until 
    all jobs are done. The function has the following arguments:
    <ul>
    <li>pool A thread pool</li>
