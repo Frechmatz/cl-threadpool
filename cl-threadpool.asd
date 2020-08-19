@@ -1,6 +1,6 @@
 (defsystem :cl-threadpool
   :serial t
-  :version "2.0.0"
+  :version "3.0.0"
   :licence "MIT"
   :author "Oliver <frechmatz@gmx.de>"
   :maintainer "Oliver <frechmatz@gmx.de>"

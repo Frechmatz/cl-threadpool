@@ -5,7 +5,7 @@
     :licence "MIT"
     :author "Oliver <frechmatz@gmx.de>"
     :maintainer "Oliver <frechmatz@gmx.de>"
-    :version "2.0.0"
+    :version "3.0.0"
     :homepage "https://github.com/Frechmatz/cl-threadpool"  
     :depends-on (:lisp-unit
 		 :cl-threadpool

@@ -1,6 +1,6 @@
 (defsystem :cl-threadpool-make-doc
   :serial t
-  :version "0.0.1"
+  :version "3.0.0"
   :licence "MIT"
   :author "Oliver <frechmatz@gmx.de>"
   :maintainer "Oliver <frechmatz@gmx.de>"
