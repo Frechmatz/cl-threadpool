@@ -255,12 +255,15 @@
 (defun assert-jobp (job)
   (if (not (functionp job))
       (error "Job must be a function")))
-  
+
+(defun queue-size-no-lock (pool)
+  (queues:qsize (slot-value pool 'job-queue)))
+
 (defun queue-size (pool)
   "Returns the current length of the job queue."
   (assert-threadpoolp pool)
   (bt:with-lock-held ((slot-value pool 'lock))
-    (queues:qsize (slot-value pool 'job-queue))))
+    (queue-size-no-lock pool)))
 
 (defun pool-name (pool)
   "Returns the name of the pool."
@@ -275,7 +278,7 @@
     (eq pool-state :stopped))
 
 (defun pool-stopped-p (pool)
-  "Returns t if the pool has successfully been stopped."
+  "Returns t if the job queue of the pool is empty and all worker threads have ended."
   (assert-threadpoolp pool)
   (bt:with-lock-held ((slot-value pool 'lock))
     (pool-state-stopped-p (slot-value pool 'state))))
@@ -398,12 +401,13 @@
 		  (return))))))))
 
 (defun stop (pool &key (timeout-seconds nil))
-  "Stops all worker threads. The function returns when all worker threads are no longer alive 
+  "<p>Stops all worker threads. The function returns when all worker threads are no longer alive 
    or when the timeout has been reached or when the pool is stopping or is already stopped. 
-   All pending jobs that are not currently being executed by a worker will be cancelled.
-   The function does not destroy threads but signals to the worker threads that they are 
-   supposed to end. If a worker thread refuses to end it will be left running.
-   See also pool-stopped-p"
+   All pending jobs that are not currently being executed by a worker thread will be cancelled
+   by one of the worker threads.</p>
+   <p>The function does not destroy threads but signals to the worker threads that they are 
+   supposed to end. If a worker thread refuses to end it will be left running.</p>
+   <p>See also pool-stopped-p to check if the pool has successfully been stopped.</p>"
   (assert-threadpoolp pool)
   (if (worker-thread-p pool)
       (error (format
@@ -428,6 +432,10 @@
 	       (if (not (eq 0 (length (slot-value pool 'threads))))
 		   nil
 		   (progn
+		     (if (not (eq 0 (queue-size-no-lock pool)))
+			 (error
+			  "All worker threads of pool ~a have ended but job queue is not empty."
+			  (slot-value pool 'name)))
 		     (setf (slot-value pool 'state) :stopped)
 		     (log-info "Pool ~a has stopped." (slot-value pool 'name))
 		     t))))
