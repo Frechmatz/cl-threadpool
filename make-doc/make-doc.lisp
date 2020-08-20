@@ -7,34 +7,21 @@
 (defun make-function-string (f)
   (concatenate
    'string
-   "<p>"
-   (cl-readme:sbcl-make-function-decl f)
-   "</p>"
-   "<p>"
-   (documentation f 'function)
-   "</p>"))
+   "<b>" (string-downcase (symbol-name f)) "</b>&nbsp;"
+   (cl-readme:sbcl-make-function-lambda-list-str f) 
+   "<p>" (documentation f 'function) "</p>"))
 
 (defun make-variable-string (v)
   (concatenate
    'string
-   "<b>"
-   (string-downcase (package-name (symbol-package v))) ":"
-   (string-downcase  (symbol-name v))
-   "</b>"
-   "<p>"
-   (documentation v 'variable)
-   "</p>"))
+   "<b>" (string-downcase (symbol-name v)) "</b>"
+   "<p>" (documentation v 'variable) "</p>"))
 
 (defun make-condition-string (c)
   (concatenate
    'string
-   "<b>"
-   (string-downcase (package-name (symbol-package c))) ":"
-   (string-downcase  (symbol-name c))
-   "</b>"
-   "<p>"
-   (documentation c 'type)
-   "</p>"))
+   "<b>" (string-downcase (symbol-name c)) "</b>"
+   "<p>" (documentation c 'type) "</p>"))
 
 (defun make-package-string (p)
   (documentation (find-package p) t))

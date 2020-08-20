@@ -52,12 +52,12 @@
       (cl-threadpool:stop threadpool))))
 
 ;; (example)</code></pre></p><h1 id="Change-Log-2">Change-Log</h1><h2>Version 1.0.0</h2><p>Initial release of cl-threadpool.</p><h2>Version 2.0.0</h2><p><b>This version is the current quicklisp release.</b></p><p>Version 2 is a major rework of the thread pool with bugfixes, new features and removal of features that have been identified as not being useful.</p><h3>Breaking changes</h3><ul><li>Removed add-job. Has been replaced with run-jobs.</li><li>Removed :resignal-job-conditions argument from make-threadpool. The pool no longer handles conditions signalled by a job.</li><li>Removed :max-queue-size argument from make-threadpool. The size of the job queue is now unlimited.</li> <li>Removed condition threadpool-error-queue-capacity-exceeded.</li><li>Removed dependency 'verbose'. The library no longer depends on a logging framework.</li></ul><h3>New features</h3><ul><li>Added run-jobs for synchronous execution of jobs.</li><li>Added queue-size to get the number of jobs waiting for execution.</li><li>Added pool-name to get the name of a thread pool.</li></ul><h2>Version 3.0.0</h2><p>This version introduces futures and shall also be the last version coming with breaking changes.</p><h3>Breaking changes</h3><ul><li>Removed cl-threadpool:start. A threadpool is now ready to use immediately after its instantiation.</li><li>Removed condition threadpool-error. Pool usage errors and internal errors are now	represented by simple-error.</li><li>cl-threadpool:stop no longer returns an indicator if the pool has successfully been stopped. The status can be checked via cl-threadpool:pool-stopped-p.</li><li>Error handling of jobs has been reworked. The threadpool now catches all unhandled conditions of jobs. If a job has signalled a condition and its result is requested, a job-execution-error is signalled by the threadpool.</li></ul><h3>New features</h3><ul><li>Added add-job Adds a job to the queue and returns a future. The future represents the result of the asynchronously running job.</li><li>Added job-value, cancel-job, job-done-p, job-cancelled-p.</li><li>Added conditions job-execution-error and job-cancellation-error.</li><li>Added pool-stopped-p.</li></ul><h1 id="Installation-3">Installation</h1><p>Installation via Quicklisp</p>
-<pre><code>(ql:quickload "cl-threadpool")</code></pre><h1 id="API-4">API</h1><p><b>cl-threadpool:make-threadpool</b> size &key (name nil) </p><p>Instantiates a thread pool. The function has the following arguments:
+<pre><code>(ql:quickload "cl-threadpool")</code></pre><h1 id="API-4">API</h1><b>make-threadpool</b>&nbsp;size &key (name nil) <p>Instantiates a thread pool. The function has the following arguments:
    <ul>
    <li>size Number of worker threads.</li>
    <li>:name Name of the pool.</li>
    </ul>
-   Returns a thread pool.</p><p><b>cl-threadpool:run-jobs</b> pool jobs </p><p>Executes a batch of jobs and returns their results. Blocks until 
+   Returns a thread pool.</p><b>run-jobs</b>&nbsp;pool jobs <p>Executes a batch of jobs and returns their results. Blocks until 
    all jobs are done. The function has the following arguments:
    <ul>
    <li>pool A thread pool</li>
@@ -68,27 +68,27 @@
    <li>job-execution-error When a job has signalled a condition.</li>
    <li>job-cancellation-error When a job has been cancelled.</li>
    </ul>
-   Returns an ordered list of job results.</p><p><b>cl-threadpool:add-job</b> pool job </p><p>Adds a job to the pool. The function has the following arguments:
+   Returns an ordered list of job results.</p><b>add-job</b>&nbsp;pool job <p>Adds a job to the pool. The function has the following arguments:
    <ul> 
    <li>pool A thread pool.</li>
    <li>job A function with no arguments.</li>
    </ul>
-   Returns a future.</p><p><b>cl-threadpool:stop</b> pool &key (timeout-seconds nil) </p><p><p>Stops all worker threads. The function returns when all worker threads are no longer alive 
+   Returns a future.</p><b>stop</b>&nbsp;pool &key (timeout-seconds nil) <p><p>Stops all worker threads. The function returns when all worker threads are no longer alive 
    or when the timeout has been reached or when the pool is stopping or is already stopped. 
    All pending jobs that are not currently being executed by a worker thread will be cancelled
    by one of the worker threads.</p>
    <p>The function does not destroy threads but signals to the worker threads that they are 
    supposed to end. If a worker thread refuses to end it will be left running.</p>
-   <p>See also pool-stopped-p to check if the pool has successfully been stopped.</p></p><p><b>cl-threadpool:threadpoolp</b> obj </p><p>Returns t if the given object represents a thread pool.</p><p><b>cl-threadpool:queue-size</b> pool </p><p>Returns the current length of the job queue.</p><p><b>cl-threadpool:pool-name</b> pool </p><p>Returns the name of the pool.</p><p><b>cl-threadpool:pool-stopped-p</b> pool </p><p>Returns t if the job queue of the pool is empty and all worker threads have ended.</p><p><b>cl-threadpool:worker-thread-p</b> pool </p><p>Returns true if the current thread is a worker thread of the given pool.</p><p><b>cl-threadpool:job-value</b> future </p><p>Get the result of a job. If the result is already available it will immediately 
+   <p>See also pool-stopped-p to check if the pool has successfully been stopped.</p></p><b>threadpoolp</b>&nbsp;obj <p>Returns t if the given object represents a thread pool.</p><b>queue-size</b>&nbsp;pool <p>Returns the current length of the job queue.</p><b>pool-name</b>&nbsp;pool <p>Returns the name of the pool.</p><b>pool-stopped-p</b>&nbsp;pool <p>Returns t if the job queue of the pool is empty and all worker threads have ended.</p><b>worker-thread-p</b>&nbsp;pool <p>Returns true if the current thread is a worker thread of the given pool.</p><b>job-value</b>&nbsp;future <p>Get the result of a job. If the result is already available it will immediately 
    be returned. Otherwise the function blocks on the completion of the job.
    The function may signal one of the following conditions:
    <ul>
    <li>job-execution-error The job has signalled a condition.</li>
    <li>job-cancellation-error The job has been cancelled.</li>
-   </ul></p><p><b>cl-threadpool:job-done-p</b> future </p><p>Returns t if the job is done. A job is done when it has
-   succesfully completed, signalled a condition or has been cancelled.</p><p><b>cl-threadpool:cancel-job</b> future </p><p>Cancels a job. The function does nothing when the job is already done.</p><p><b>cl-threadpool:job-cancelled-p</b> future </p><p>Returns t if the job has been cancelled.</p><b>cl-threadpool:job-cancellation-error</b><p>This condition is signalled when the result of a job is requested but the 
-    job has been cancelled.</p><b>cl-threadpool:job-execution-error</b><p>This condition is signalled when the result of a job is requested but the job has
-    signalled a condition during its execution.</p><p><b>cl-threadpool:job-execution-error-pool-name</b> condition </p><p></p><p><b>cl-threadpool:job-execution-error-thread-id</b> condition </p><p></p><p><b>cl-threadpool:job-execution-error-message</b> condition </p><p></p><b>cl-threadpool:*logger*</b><p>The logger of cl-threadpool. The default implementation is empty.
+   </ul></p><b>job-done-p</b>&nbsp;future <p>Returns t if the job is done. A job is done when it has
+   succesfully completed, signalled a condition or has been cancelled.</p><b>cancel-job</b>&nbsp;future <p>Cancels a job. The function does nothing when the job is already done.</p><b>job-cancelled-p</b>&nbsp;future <p>Returns t if the job has been cancelled.</p><b>job-cancellation-error</b><p>This condition is signalled when the result of a job is requested but the 
+    job has been cancelled.</p><b>job-execution-error</b><p>This condition is signalled when the result of a job is requested but the job has
+    signalled a condition during its execution.</p><b>job-execution-error-pool-name</b>&nbsp;condition <p></p><b>job-execution-error-thread-id</b>&nbsp;condition <p></p><b>job-execution-error-message</b>&nbsp;condition <p></p><b>*logger*</b><p>The logger of cl-threadpool. The default implementation is empty.
  Refer to test/util/logger.lisp for an implementation using the "verbose" library.</p><h1 id="Supported Lisp implementations and operating systems-5">Supported Lisp implementations and operating systems</h1><p>cl-threadpool has been tested with:</p>
 <ul>
     <li>MacOS 10.11.3 (El Capitan):&nbsp;SBCL, CCL, ABCL (Java 1.8)</li>
@@ -97,4 +97,4 @@
     <li>MacOS 10.15.1 (Catalina):&nbsp;CCL Version 1.12 DarwinX8664</li>
     <li>Windows 10:&nbsp;SBCL 2.0.0</li>
     <li>Windows 10:&nbsp;ABCL 1.6.1 Java(TM) SE Runtime Environment (build 1.8.0_251-b08)</li>
-</ul></section><footer><hr/><p><small>Generated 2020-08-20  23:55:48</small></p></footer></body></html>
+</ul></section><footer><hr/><p><small>Generated 2020-08-21  01:15:51</small></p></footer></body></html>
