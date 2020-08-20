@@ -73,12 +73,13 @@
    <li>pool A thread pool.</li>
    <li>job A function with no arguments.</li>
    </ul>
-   Returns a future.</p><p><b>cl-threadpool:stop</b> pool &key (timeout-seconds nil) </p><p>Stops all worker threads. The function returns when all worker threads are no longer alive 
+   Returns a future.</p><p><b>cl-threadpool:stop</b> pool &key (timeout-seconds nil) </p><p><p>Stops all worker threads. The function returns when all worker threads are no longer alive 
    or when the timeout has been reached or when the pool is stopping or is already stopped. 
-   All pending jobs that are not currently being executed by a worker will be cancelled.
-   The function does not destroy threads but signals to the worker threads that they are 
-   supposed to end. If a worker thread refuses to end it will be left running.
-   See also pool-stopped-p</p><p><b>cl-threadpool:threadpoolp</b> obj </p><p>Returns t if the given object represents a thread pool.</p><p><b>cl-threadpool:queue-size</b> pool </p><p>Returns the current length of the job queue.</p><p><b>cl-threadpool:pool-name</b> pool </p><p>Returns the name of the pool.</p><p><b>cl-threadpool:pool-stopped-p</b> pool </p><p>Returns t if the pool has successfully been stopped.</p><p><b>cl-threadpool:worker-thread-p</b> pool </p><p>Returns true if the current thread is a worker thread of the given pool.</p><p><b>cl-threadpool:job-value</b> future </p><p>Get the result of a job. If the result is already available it will immediately 
+   All pending jobs that are not currently being executed by a worker thread will be cancelled
+   by one of the worker threads.</p>
+   <p>The function does not destroy threads but signals to the worker threads that they are 
+   supposed to end. If a worker thread refuses to end it will be left running.</p>
+   <p>See also pool-stopped-p to check if the pool has successfully been stopped.</p></p><p><b>cl-threadpool:threadpoolp</b> obj </p><p>Returns t if the given object represents a thread pool.</p><p><b>cl-threadpool:queue-size</b> pool </p><p>Returns the current length of the job queue.</p><p><b>cl-threadpool:pool-name</b> pool </p><p>Returns the name of the pool.</p><p><b>cl-threadpool:pool-stopped-p</b> pool </p><p>Returns t if the job queue of the pool is empty and all worker threads have ended.</p><p><b>cl-threadpool:worker-thread-p</b> pool </p><p>Returns true if the current thread is a worker thread of the given pool.</p><p><b>cl-threadpool:job-value</b> future </p><p>Get the result of a job. If the result is already available it will immediately 
    be returned. Otherwise the function blocks on the completion of the job.
    The function may signal one of the following conditions:
    <ul>
@@ -95,4 +96,4 @@
     <li>MacOS 10.15.1 (Catalina):&nbsp;CCL Version 1.12 DarwinX8664</li>
     <li>Windows 10:&nbsp;SBCL 2.0.0</li>
     <li>Windows 10:&nbsp;ABCL 1.6.1 Java(TM) SE Runtime Environment (build 1.8.0_251-b08)</li>
-</ul></section><footer><hr/><p><small>Generated 2020-08-20  22:12:26</small></p></footer></body></html>
+</ul></section><footer><hr/><p><small>Generated 2020-08-20  23:12:31</small></p></footer></body></html>
