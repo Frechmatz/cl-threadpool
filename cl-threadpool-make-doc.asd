@@ -8,7 +8,11 @@
   :description "Generates the documentation of cl-threadpool"
   :long-description "Generates the documentation of cl-threadpool"
   :depends-on (:cl-threadpool :cl-readme)
-  :components ((:module "make-doc"
+  :components ((:module "examples"
+			:serial t
+			:components ((:file "example-1")
+				     (:file "example-2")))
+	       (:module "make-doc"
 			:serial t
 			:components ((:file "packages")
 				     (:file "make-doc")))))
