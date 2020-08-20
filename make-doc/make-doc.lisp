@@ -118,9 +118,7 @@
 		       ,(make-function-string 'cl-threadpool:job-execution-error-pool-name)
 		       ,(make-function-string 'cl-threadpool:job-execution-error-thread-id)
 		       ,(make-function-string 'cl-threadpool:job-execution-error-message)
-		       ;; TODO Improve documentation of *logger*
-		       ;; ,(make-variable-string 'cl-threadpool:*logger*)
-		       )
+		       ,(make-variable-string 'cl-threadpool:*logger*))
 	      (heading (:name "Supported Lisp implementations and operating systems" :toc t)
 		       ,(cl-readme:read-verbatim "make-doc/supported.html")))
     (semantic (:name "footer")

@@ -13,7 +13,8 @@
   (lambda(level who format-control format-arguments)
     (declare (ignore level who format-control format-arguments))
     nil)
-  "Logging hook. The default implementation is empty.")
+  "The logger of cl-threadpool. The default implementation is empty.
+ Refer to test/util/logger.lisp for an implementation using the \"verbose\" library.")
 
 (defun log-info (format-control &rest format-arguments)
   (funcall *logger* :info :cl-threadpool format-control format-arguments))

@@ -88,7 +88,8 @@
    </ul></p><p><b>cl-threadpool:job-done-p</b> future </p><p>Returns t if the job is done. A job is done when it has
    succesfully completed, signalled a condition or has been cancelled.</p><p><b>cl-threadpool:cancel-job</b> future </p><p>Cancels a job. The function does nothing when the job is already done.</p><p><b>cl-threadpool:job-cancelled-p</b> future </p><p>Returns t if the job has been cancelled.</p><b>cl-threadpool:job-cancellation-error</b><p>This condition is signalled when the result of a job is requested but the 
     job has been cancelled.</p><b>cl-threadpool:job-execution-error</b><p>This condition is signalled when the result of a job is requested but the job has
-    signalled a condition during its execution.</p><p><b>cl-threadpool:job-execution-error-pool-name</b> condition </p><p></p><p><b>cl-threadpool:job-execution-error-thread-id</b> condition </p><p></p><p><b>cl-threadpool:job-execution-error-message</b> condition </p><p></p><h1 id="Supported Lisp implementations and operating systems-5">Supported Lisp implementations and operating systems</h1><p>cl-threadpool has been tested with:</p>
+    signalled a condition during its execution.</p><p><b>cl-threadpool:job-execution-error-pool-name</b> condition </p><p></p><p><b>cl-threadpool:job-execution-error-thread-id</b> condition </p><p></p><p><b>cl-threadpool:job-execution-error-message</b> condition </p><p></p><b>cl-threadpool:*logger*</b><p>The logger of cl-threadpool. The default implementation is empty.
+ Refer to test/util/logger.lisp for an implementation using the "verbose" library.</p><h1 id="Supported Lisp implementations and operating systems-5">Supported Lisp implementations and operating systems</h1><p>cl-threadpool has been tested with:</p>
 <ul>
     <li>MacOS 10.11.3 (El Capitan):&nbsp;SBCL, CCL, ABCL (Java 1.8)</li>
     <li>MacOS 10.15.1 (Catalina):&nbsp;SBCL 2.0.2</li>
@@ -96,4 +97,4 @@
     <li>MacOS 10.15.1 (Catalina):&nbsp;CCL Version 1.12 DarwinX8664</li>
     <li>Windows 10:&nbsp;SBCL 2.0.0</li>
     <li>Windows 10:&nbsp;ABCL 1.6.1 Java(TM) SE Runtime Environment (build 1.8.0_251-b08)</li>
-</ul></section><footer><hr/><p><small>Generated 2020-08-20  23:12:31</small></p></footer></body></html>
+</ul></section><footer><hr/><p><small>Generated 2020-08-20  23:55:48</small></p></footer></body></html>
