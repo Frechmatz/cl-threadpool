@@ -14,7 +14,7 @@
   (:export :pool-name)
   (:export :pool-stopped-p)
   (:export :worker-thread-p)
-  (:export :job-value)
+  (:export :job-result)
   (:export :job-done-p)
   (:export :cancel-job)
   (:export :job-cancelled-p)

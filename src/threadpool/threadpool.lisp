@@ -145,7 +145,7 @@
 	 (bt:condition-notify (slot-value future 'cv))))))
     nil)
 
-(defun job-value (future)
+(defun job-result (future)
   "Get the result of a job. If the result is already available it will immediately 
    be returned. Otherwise the function blocks on the completion of the job.
    The function may signal one of the following conditions:
@@ -498,7 +498,7 @@
 	(job-results nil))
     (dolist (future futures)
       (handler-case
-	  (push (job-value future) job-results)
+	  (push (job-result future) job-results)
 	(condition (c)
 	  (if (not job-error) (setf job-error c))))
       ;; We are owning the futures here and can put them back into the pool.

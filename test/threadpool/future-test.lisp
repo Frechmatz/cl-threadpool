@@ -5,7 +5,7 @@
 (defun future-test-catch-get-value-error (future)
   (let ((catched-error nil))
     (handler-case
-	(cl-threadpool:job-value future)
+	(cl-threadpool:job-result future)
       (error (err)
 	(setf catched-error err)))
     catched-error))
@@ -31,7 +31,7 @@
   "completed"
   (let ((future (make-instance 'cl-threadpool::future)))
     (cl-threadpool::complete-job future "RESULT")
-    (assert-equal "RESULT" (cl-threadpool:job-value future))))
+    (assert-equal "RESULT" (cl-threadpool:job-result future))))
 
 (define-test future-completed-completed ()
   "completed-completed"
@@ -40,7 +40,7 @@
     (assert-true
      (future-test-catch-invocation-error
       (lambda() (cl-threadpool::complete-job future "RESULT-2"))))
-    (assert-equal "RESULT-1" (cl-threadpool:job-value future))))
+    (assert-equal "RESULT-1" (cl-threadpool:job-result future))))
 
 (define-test future-completed-cancelled ()
   "completed-cancelled"
@@ -49,7 +49,7 @@
     (assert-true
      (not (future-test-catch-invocation-error
 	   (lambda() (cl-threadpool:cancel-job future)))))
-    (assert-equal "RESULT" (cl-threadpool:job-value future))))
+    (assert-equal "RESULT" (cl-threadpool:job-result future))))
 
 (define-test future-completed-rejected ()
   "completed-rejected"
@@ -58,7 +58,7 @@
     (assert-true
      (future-test-catch-invocation-error
       (lambda() (cl-threadpool::reject-job future "POOL" "THREAD-ID" "REPORT"))))
-    (assert-equal "RESULT" (cl-threadpool:job-value future))))
+    (assert-equal "RESULT" (cl-threadpool:job-result future))))
 
 ;;
 ;; Rejected

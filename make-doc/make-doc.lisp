@@ -80,7 +80,7 @@
 				(heading (:name "New features")
 					 "<ul>"
 					 "<li>Added add-job Adds a job to the queue and returns a future. The future represents the result of the asynchronously running job.</li>"
-					 "<li>Added job-value, cancel-job, job-done-p, job-cancelled-p.</li>"
+					 "<li>Added job-result, cancel-job, job-done-p, job-cancelled-p.</li>"
 					 "<li>Added conditions job-execution-error and job-cancellation-error.</li>"
 					 "<li>Added pool-stopped-p.</li>"
 					 "</ul>")))
@@ -96,7 +96,7 @@
 		       ,(make-function-string 'cl-threadpool:pool-name)
 		       ,(make-function-string 'cl-threadpool:pool-stopped-p)
 		       ,(make-function-string 'cl-threadpool:worker-thread-p)
-		       ,(make-function-string 'cl-threadpool:job-value)
+		       ,(make-function-string 'cl-threadpool:job-result)
 		       ,(make-function-string 'cl-threadpool:job-done-p)
 		       ,(make-function-string 'cl-threadpool:cancel-job)
 		       ,(make-function-string 'cl-threadpool:job-cancelled-p)

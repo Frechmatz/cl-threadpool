@@ -23,8 +23,8 @@
       ;;
       ;; Retrieve job results
       ;;
-      (format t "~%~a" (cl-threadpool:job-value job-1)) ;; => "Job 1"
-      (format t "~%~a" (cl-threadpool:job-value job-2)) ;; => "Job 2"
+      (format t "~%~a" (cl-threadpool:job-result job-1)) ;; => "Job 1"
+      (format t "~%~a" (cl-threadpool:job-result job-2)) ;; => "Job 2"
       ;;
       ;; Print status of jobs
       ;;
