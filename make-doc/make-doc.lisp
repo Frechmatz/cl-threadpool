@@ -117,7 +117,7 @@
 ;;
 
 (defun make-readme ()
-  (let ((cl-readme:*home-directory* "/Users/olli/src/lisp/cl-threadpool/")
+  (let ((cl-readme:*home-directory* (asdf:system-source-directory :cl-threadpool-make-doc))
 	(cl-readme:*tab-width* 8))
     (with-open-file (fh (cl-readme:make-path "docs/index.html")
 			:direction :output
