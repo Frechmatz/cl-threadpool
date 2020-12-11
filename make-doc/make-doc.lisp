@@ -4,50 +4,93 @@
 ;; Helper functions
 ;;
 
-(defun make-function-string (f)
+(defun make-index (system)
+  (docparser:parse system))
+
+(defun get-index-node (index package-name symbol-name)
+  (aref (docparser:query
+	 index
+	 :package-name (string-upcase package-name)
+	 :symbol-name (string-upcase symbol-name))
+	0))
+
+(defun make-function-string (index package-name symbol-name)
+  "Returns HTML representation of a function"
+  (let* ((node (get-index-node index package-name symbol-name))
+	 (lambda-list (docparser:operator-lambda-list node)))
+    (concatenate
+     'string
+     "<b>" (string-downcase symbol-name) "</b>&nbsp;"
+     (string-downcase (format nil "~a" (if lambda-list lambda-list "()")))
+     "<p>" (docparser:node-docstring node) "</p>")))
+
+(defun make-variable-string (index package-name symbol-name)
+  "Returns HTML representation of a variable"
+  (let ((node (get-index-node index package-name symbol-name)))
+    (concatenate
+     'string
+     "<b>" (string-downcase symbol-name) "</b>"
+     "<p>" (docparser:node-docstring node) "</p>")))
+
+(defun make-condition-string (index package-name symbol-name)
+  "Returns HTML representation of a condition."
+  (let* ((node (get-index-node index package-name symbol-name)))
+    (concatenate
+     'string
+     "<b>" (string-downcase symbol-name) "</b>"
+     "<p>"  (docparser:node-docstring node) "</p>")))
+
+(defun get-package-docstring (index package-name)
+  (let ((docstring nil))
+    ;; Did not found a better way yet :(
+    (docparser:do-packages (package index)
+      (if (string= (string-upcase package-name) (docparser:package-index-name package))
+	  (setf docstring (docparser:package-index-docstring package))))
+    (if (not docstring)
+	(error "Package ~a not found" package-name))
+    docstring))
+
+(defun make-package-string (index package-name)
   (concatenate
    'string
-   "<b>" (string-downcase (symbol-name f)) "</b>&nbsp;"
-   (cl-readme:sbcl-make-function-lambda-list-str f) 
-   "<p>" (documentation f 'function) "</p>"))
+   "<p>" (get-package-docstring index package-name) "</p>"))
 
-(defun make-variable-string (v)
+(defun make-code-string (path)
+  "Returns HTML representation of a source code file"
   (concatenate
    'string
-   "<b>" (string-downcase (symbol-name v)) "</b>"
-   "<p>" (documentation v 'variable) "</p>"))
+   "<p><pre><code>"
+   (cl-html-readme:read-file path :replace-tabs t :escape t)
+   "</code></pre></p>"))
 
-(defun make-condition-string (c)
-  (concatenate
-   'string
-   "<b>" (string-downcase (symbol-name c)) "</b>"
-   "<p>" (documentation c 'type) "</p>"))
-
-(defun make-package-string (p)
-  (documentation (find-package p) t))
+(defun now ()
+  "Returns a string representing the current date and time."
+  (multiple-value-bind (sec min hr day mon yr dow dst-p tz)
+      (get-decoded-time)
+    (declare (ignore dow dst-p tz))
+    ;; 2018-09-19 21:28:16
+    (let ((str (format nil "~4,'0d-~2,'0d-~2,'0d  ~2,'0d:~2,'0d:~2,'0d" yr mon day hr min sec)))
+      str)))
 
 ;;
 ;; Readme
 ;;
 
-(defun get-readme ()
+(defun get-readme (index doc-index)
   `("<html><body>"
     (semantic (:name "header")
 	      (heading (:name "cl-threadpool"))
-	      ,(cl-readme:read-verbatim "make-doc/introduction.html")
+	      ,(cl-html-readme:read-file "make-doc/introduction.html")
 	      "<p>The source code is available <a href=\"https://github.com/Frechmatz/cl-threadpool\">here</a>.</p>")
     (semantic (:name "nav")
 	      (heading (:name "Table of contents")
 		       (toc)))
     (semantic (:name "section")
 	      (heading (:name "Examples" :toc t)
-		       (heading (:name ,(make-package-string 'cl-threadpool-example-1))
-				,(cl-readme:read-code "examples/example-1.lisp"))
-		       (heading (:name ,(make-package-string 'cl-threadpool-example-2))
-				,(cl-readme:read-code "examples/example-2.lisp")))
-	      ;; Yes, the change-log looks messy.
-	      ;; But this approach generates proper headings and
-	      ;; gives us the possibility to add them to the TOC.
+		       (heading (:name ,(make-package-string doc-index "cl-threadpool-example-1"))
+				,(make-code-string "examples/example-1.lisp"))
+		       (heading (:name ,(make-package-string doc-index "cl-threadpool-example-2"))
+				,(make-code-string "examples/example-2.lisp")))
 	      (heading (:name "Change-Log" :toc t)
 		       (heading (:name "Version 1.0.0")
 				"<p>Initial release of cl-threadpool.</p>")
@@ -85,31 +128,30 @@
 					 "<li>Added pool-stopped-p.</li>"
 					 "</ul>")))
 	      (heading (:name "Installation" :toc t)
-		       ,(cl-readme:read-verbatim "make-doc/installation.html"))
+		       ,(cl-html-readme:read-file "make-doc/installation.html"))
 	      (heading (:name "API" :toc t)
-		       ,(make-function-string 'cl-threadpool:make-threadpool)
-		       ,(make-function-string 'cl-threadpool:run-jobs)
-		       ,(make-function-string 'cl-threadpool:add-job)
-		       ,(make-function-string 'cl-threadpool:stop)
-		       ,(make-function-string 'cl-threadpool:threadpoolp)
-		       ,(make-function-string 'cl-threadpool:queue-size)
-		       ,(make-function-string 'cl-threadpool:pool-name)
-		       ,(make-function-string 'cl-threadpool:pool-stopped-p)
-		       ,(make-function-string 'cl-threadpool:worker-thread-p)
-		       ,(make-function-string 'cl-threadpool:job-result)
-		       ,(make-function-string 'cl-threadpool:job-done-p)
-		       ,(make-function-string 'cl-threadpool:cancel-job)
-		       ,(make-function-string 'cl-threadpool:job-cancelled-p)
-		       ,(make-condition-string 'cl-threadpool:job-cancellation-error)
-		       ,(make-condition-string 'cl-threadpool:job-execution-error)
-		       ,(make-function-string 'cl-threadpool:job-execution-error-pool-name)
-		       ,(make-function-string 'cl-threadpool:job-execution-error-thread-id)
-		       ,(make-function-string 'cl-threadpool:job-execution-error-message)
-		       ,(make-variable-string 'cl-threadpool:*logger*))
+		       ,(make-function-string index "cl-threadpool" "make-threadpool")
+		       ,(make-function-string index "cl-threadpool" "run-jobs")
+		       ,(make-function-string index "cl-threadpool" "add-job")
+		       ,(make-function-string index "cl-threadpool" "stop")
+		       ,(make-function-string index "cl-threadpool" "threadpoolp")
+		       ,(make-function-string index "cl-threadpool" "queue-size")
+		       ,(make-function-string index "cl-threadpool" "pool-name")
+		       ,(make-function-string index "cl-threadpool" "pool-stopped-p")
+		       ,(make-function-string index "cl-threadpool" "worker-thread-p")
+		       ,(make-function-string index "cl-threadpool" "job-result")
+		       ,(make-function-string index "cl-threadpool" "job-done-p")
+		       ,(make-function-string index "cl-threadpool" "cancel-job")
+		       ,(make-function-string index "cl-threadpool" "job-cancelled-p")
+		       ,(make-condition-string index "cl-threadpool" "job-cancellation-error")
+		       ,(make-condition-string index "cl-threadpool" "job-execution-error")
+		       ,(make-function-string index "cl-threadpool" "job-execution-error-pool-name")
+		       ,(make-function-string index "cl-threadpool" "job-execution-error-message")
+		       ,(make-variable-string index "cl-threadpool" "*logger*"))
 	      (heading (:name "Supported Lisp implementations and operating systems" :toc t)
-		       ,(cl-readme:read-verbatim "make-doc/supported.html")))
+		       ,(cl-html-readme:read-file "make-doc/supported.html")))
     (semantic (:name "footer")
-	      "<hr/><p><small>Generated " ,(cl-readme:current-date) "</small></p>")
+	      "<hr/><p><small>Generated " ,(now) "</small></p>")
     "</body></html>"))
 
 ;;
@@ -117,14 +159,16 @@
 ;;
 
 (defun make-readme ()
-  (let ((cl-readme:*home-directory* (asdf:system-source-directory :cl-threadpool-make-doc))
-	(cl-readme:*tab-width* 8))
-    (with-open-file (fh (cl-readme:make-path "docs/index.html")
+  (let ((cl-html-readme:*home-directory* (asdf:system-source-directory :cl-threadpool-make-doc))
+	(cl-html-readme:*tab-width* 8)
+	(index (make-index :cl-threadpool))
+	(doc-index (make-index :cl-threadpool-make-doc)))
+    (with-open-file (fh (cl-html-readme:make-path "docs/index.html")
 			:direction :output
 			:if-exists :supersede
 			:if-does-not-exist :create
 			:external-format :utf-8)
-      (cl-readme:doc-to-html fh (get-readme))))
+      (cl-html-readme:doc-to-html fh (get-readme index doc-index))))
   "DONE")
 
 ;;(make-readme)

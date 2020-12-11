@@ -7,7 +7,7 @@
   :homepage "https://github.com/Frechmatz/cl-threadpool"
   :description "Generates the documentation of cl-threadpool"
   :long-description "Generates the documentation of cl-threadpool"
-  :depends-on (:cl-threadpool :cl-readme)
+  :depends-on (:cl-threadpool :cl-html-readme :docparser)
   :components ((:module "examples"
 			:serial t
 			:components ((:file "example-1")
