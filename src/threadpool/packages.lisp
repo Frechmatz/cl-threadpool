@@ -2,7 +2,6 @@
   (:use :cl)
   (:export :job-execution-error)
   (:export :job-execution-error-pool-name)
-  (:export :job-execution-error-thread-id)
   (:export :job-execution-error-message)
   (:export :job-cancellation-error)
   (:export :make-threadpool)
