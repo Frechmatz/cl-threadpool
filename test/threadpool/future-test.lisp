@@ -76,7 +76,7 @@
     (let ((err (future-test-catch-get-value-error future)))
       (assert-true (typep err 'cl-threadpool:job-execution-error))
       (assert-equal "POOL" (cl-threadpool:job-execution-error-pool-name err))
-      (assert-equal "THREAD-ID" (cl-threadpool:job-execution-error-thread-id err))
+      (assert-equal "THREAD-ID" (cl-threadpool::job-execution-error-thread-id err))
       (assert-equal "REPORT" (cl-threadpool:job-execution-error-message err)))))
 
 (define-test future-rejected-rejected ()
