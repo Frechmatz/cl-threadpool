@@ -30,12 +30,24 @@
 ;;
 
 (define-condition job-execution-error (error)
-  ((pool-name :initarg :pool-name :reader job-execution-error-pool-name)
-   (thread-id :initarg :thread-id :reader job-execution-error-thread-id)
-   (message :initarg :message :reader job-execution-error-message))
+  ((pool-name :initarg :pool-name)
+   (thread-id :initarg :thread-id)
+   (message :initarg :message))
   (:documentation
    "This condition is signalled when the result of a job is requested but the job has
     signalled a condition during its execution."))
+
+(defun job-execution-error-pool-name (job-execution-error)
+  "Returns the name of the thread pool that has signalled the given job execution error."
+  (slot-value job-execution-error 'pool-name))
+
+(defun job-execution-error-message (job-execution-error)
+  "Returns the error message of the given job execution error."
+  (slot-value job-execution-error 'message))
+
+(defun job-execution-error-thread-id (job-execution-error)
+  "Returns the id of the thread that has signalled the given job execution error."
+  (slot-value job-execution-error 'thread-id))
 
 (define-condition job-cancellation-error (error)
   ()
