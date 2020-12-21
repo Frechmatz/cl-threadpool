@@ -12,4 +12,5 @@
   :components ((:module "src/threadpool"
 			:serial t
 			:components ((:file "packages")
-				     (:file "threadpool")))))
+				     (:file "threadpool"))))
+  :in-order-to ((test-op (test-op "cl-threadpool-test"))))
