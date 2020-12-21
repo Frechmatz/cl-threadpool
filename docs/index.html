@@ -1,4 +1,4 @@
-<html><head><link href="styles.css" rel="stylesheet" type="text/css"/></head><body><header><h1>cl-threadpool</h1><p>A thread pool implemented in Common Lisp. Thread pools consist of a bunch of worker threads and a job queue.</p><p>The source code is available <a href="https://github.com/Frechmatz/cl-threadpool">here</a>.</p></header><nav><h1>Table of contents</h1><ul><li><a href="#Examples">Examples</a></li><li><a href="#Change-Log">Change-Log</a></li><li><a href="#Installation">Installation</a></li><li><a href="#API">API</a></li><li><a href="#Supported Lisp implementations and operating systems">Supported Lisp implementations and operating systems</a></li></ul></nav><section><h1 id="Examples">Examples</h1><h2><p>Synchronously execute a batch of jobs</p></h2><p><pre><code>(defpackage :cl-threadpool-example-1
+<html><head><link href="styles.css" rel="stylesheet" type="text/css"/></head><body><header><h1>cl-threadpool</h1><p>A thread pool implemented in Common Lisp. Thread pools consist of a bunch of worker threads and a job queue.</p><p>The source code is available <a href="https://github.com/Frechmatz/cl-threadpool">here</a>.</p></header><nav><h1>Table of contents</h1><ul><li><a href="#Examples">Examples</a></li><li><a href="#Change-Log">Change-Log</a></li><li><a href="#Installation">Installation</a></li><li><a href="#API">API</a></li><li><a href="#Run tests">Run tests</a></li></ul></nav><section><h1 id="Examples">Examples</h1><h2><p>Synchronously execute a batch of jobs</p></h2><p><pre><code>(defpackage :cl-threadpool-example-1
   (:documentation &quot;Synchronously execute a batch of jobs&quot;)
   (:use :cl))
 (in-package :cl-threadpool-example-1)
@@ -89,7 +89,7 @@
    succesfully completed, signalled a condition or has been cancelled.</p><b>cancel-job</b>&nbsp;(future)<p>Cancels a job. The function does nothing when the job is already done.</p><b>job-cancelled-p</b>&nbsp;(future)<p>Returns t if the job has been cancelled.</p><b>job-cancellation-error</b><p>This condition is signalled when the result of a job is requested but the 
     job has been cancelled.</p><b>job-execution-error</b><p>This condition is signalled when the result of a job is requested but the job has
     signalled a condition during its execution.</p><b>job-execution-error-pool-name</b>&nbsp;(job-execution-error)<p>Returns the name of the thread pool that has signalled the given job execution error.</p><b>job-execution-error-message</b>&nbsp;(job-execution-error)<p>Returns the error message of the given job execution error.</p><b>*logger*</b><p>The logger of cl-threadpool. The default implementation is empty.
- Refer to test/util/logger.lisp for an implementation using the "verbose" library.</p><h1 id="Supported Lisp implementations and operating systems">Supported Lisp implementations and operating systems</h1><p>cl-threadpool has been tested with:</p>
+ Refer to test/util/logger.lisp for an implementation using the "verbose" library.</p><h1 id="Run tests">Run tests</h1><pre><code>(asdf:test-system :cl-threadpool)</code></pre><h2>Tested Lisp implementations and operating systems</h2><p>cl-threadpool has been tested with:</p>
 <ul>
     <li>MacOS 10.11.3 (El Capitan):&nbsp;SBCL, CCL, ABCL (Java 1.8)</li>
     <li>MacOS 10.15.1 (Catalina):&nbsp;SBCL 2.0.2</li>
@@ -97,4 +97,4 @@
     <li>MacOS 10.15.1 (Catalina):&nbsp;CCL Version 1.12 DarwinX8664</li>
     <li>Windows 10:&nbsp;SBCL 2.0.0</li>
     <li>Windows 10:&nbsp;ABCL 1.6.1 Java(TM) SE Runtime Environment (build 1.8.0_251-b08)</li>
-</ul></section><footer><hr/><p><small>Generated 2020-12-21  20:07:21</small></p></footer></body></html>
+</ul></section><footer><hr/><p><small>Generated 2020-12-22  00:03:10</small></p></footer></body></html>

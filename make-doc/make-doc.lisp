@@ -150,8 +150,10 @@
 		       ,(make-function-string index "cl-threadpool" "job-execution-error-pool-name")
 		       ,(make-function-string index "cl-threadpool" "job-execution-error-message")
 		       ,(make-variable-string index "cl-threadpool" "*logger*"))
-	      (heading (:name "Tested Lisp implementations and operating systems" :toc t)
-		       ,(cl-html-readme:read-file "make-doc/supported.html")))
+	      (heading (:name "Run tests" :toc t)
+		       "<pre><code>(asdf:test-system :cl-threadpool)</code></pre>"
+		       (heading (:name "Tested Lisp implementations and operating systems")
+				,(cl-html-readme:read-file "make-doc/supported.html"))))
     (semantic (:name "footer")
 	      "<hr/><p><small>Generated " ,(now) "</small></p>")
     "</body></html>"))
