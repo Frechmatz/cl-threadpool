@@ -77,7 +77,9 @@
 ;;
 
 (defun get-readme (index doc-index)
-  `("<html><body>"
+  `("<html>"
+    "<head><link href=\"styles.css\" rel=\"stylesheet\" type=\"text/css\"/></head>"
+    "<body>"
     (semantic (:name "header")
 	      (heading (:name "cl-threadpool"))
 	      ,(cl-html-readme:read-file "make-doc/introduction.html")
@@ -148,7 +150,7 @@
 		       ,(make-function-string index "cl-threadpool" "job-execution-error-pool-name")
 		       ,(make-function-string index "cl-threadpool" "job-execution-error-message")
 		       ,(make-variable-string index "cl-threadpool" "*logger*"))
-	      (heading (:name "Supported Lisp implementations and operating systems" :toc t)
+	      (heading (:name "Tested Lisp implementations and operating systems" :toc t)
 		       ,(cl-html-readme:read-file "make-doc/supported.html")))
     (semantic (:name "footer")
 	      "<hr/><p><small>Generated " ,(now) "</small></p>")
@@ -160,7 +162,7 @@
 
 (defun make-readme ()
   (let ((cl-html-readme:*home-directory* (asdf:system-source-directory :cl-threadpool-make-doc))
-	(cl-html-readme:*tab-width* 8)
+	(cl-html-readme:*tab-width* 4)
 	(index (make-index :cl-threadpool))
 	(doc-index (make-index :cl-threadpool-make-doc)))
     (with-open-file (fh (cl-html-readme:make-path "docs/index.html")
