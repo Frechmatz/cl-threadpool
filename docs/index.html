@@ -1,4 +1,4 @@
-<html><head><link href="styles.css" rel="stylesheet" type="text/css"/></head><body><header><h1>cl-threadpool</h1><p>A thread pool implemented in Common Lisp. Thread pools consist of a bunch of worker threads and a job queue.</p><p>The source code is available <a href="https://github.com/Frechmatz/cl-threadpool">here</a>.</p></header><nav><h1>Table of contents</h1><ul><li><a href="#Examples">Examples</a></li><li><a href="#Change-Log">Change-Log</a></li><li><a href="#Installation">Installation</a></li><li><a href="#API">API</a></li><li><a href="#Run tests">Run tests</a></li></ul></nav><section><h1 id="Examples">Examples</h1><h2><p>Synchronously execute a batch of jobs</p></h2><p><pre><code>(defpackage :cl-threadpool-example-1
+<html><head><link href="styles.css" rel="stylesheet" type="text/css"/></head><body><header><h1>cl-threadpool</h1><p>A thread pool implemented in Common Lisp. Thread pools consist of a bunch of worker threads and a job queue.</p><p>The source code is available <a href="https://github.com/Frechmatz/cl-threadpool">here</a>.</p></header><nav><h1>Table of contents</h1><ul><li><a href="#Examples">Examples</a></li><li><a href="#Change-Log">Change-Log</a></li><li><a href="#Installation">Installation</a></li><li><a href="#API">API</a></li><li><a href="#Run tests">Run tests</a></li><li><a href="#Generate documentation">Generate documentation</a></li></ul></nav><section><h1 id="Examples">Examples</h1><h2><p>Synchronously execute a batch of jobs</p></h2><p><pre><code>(defpackage :cl-threadpool-example-1
   (:documentation &quot;Synchronously execute a batch of jobs&quot;)
   (:use :cl))
 (in-package :cl-threadpool-example-1)
@@ -97,4 +97,5 @@
     <li>MacOS 10.15.1 (Catalina):&nbsp;CCL Version 1.12 DarwinX8664</li>
     <li>Windows 10:&nbsp;SBCL 2.0.0</li>
     <li>Windows 10:&nbsp;ABCL 1.6.1 Java(TM) SE Runtime Environment (build 1.8.0_251-b08)</li>
-</ul></section><footer><hr/><p><small>Generated 2020-12-22  00:03:10</small></p></footer></body></html>
+</ul><h1 id="Generate documentation">Generate documentation</h1><p><pre><code>(asdf:load-system :cl-threadpool/doc)
+(cl-threadpool-make-doc::make-doc)</code></pre></p></section><footer><hr/><p><small>Generated 2020-12-23  16:49:04</small></p></footer></body></html>

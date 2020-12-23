@@ -153,7 +153,11 @@
 	      (heading (:name "Run tests" :toc t)
 		       "<pre><code>(asdf:test-system :cl-threadpool)</code></pre>"
 		       (heading (:name "Tested Lisp implementations and operating systems")
-				,(cl-html-readme:read-file "make-doc/supported.html"))))
+				,(cl-html-readme:read-file "make-doc/supported.html")))
+	      (heading (:name "Generate documentation" :toc t)
+		       ,(make-code-string "make-doc/generate-doc.lisp"))
+
+	      )
     (semantic (:name "footer")
 	      "<hr/><p><small>Generated " ,(now) "</small></p>")
     "</body></html>"))
@@ -162,11 +166,11 @@
 ;; Generate HTML file
 ;;
 
-(defun make-readme ()
-  (let ((cl-html-readme:*home-directory* (asdf:system-source-directory :cl-threadpool-make-doc))
+(defun make-doc ()
+  (let ((cl-html-readme:*home-directory* (asdf:system-source-directory :cl-threadpool/doc))
 	(cl-html-readme:*tab-width* 4)
 	(index (make-index :cl-threadpool))
-	(doc-index (make-index :cl-threadpool-make-doc)))
+	(doc-index (make-index :cl-threadpool/doc)))
     (with-open-file (fh (cl-html-readme:make-path "docs/index.html")
 			:direction :output
 			:if-exists :supersede
@@ -175,4 +179,4 @@
       (cl-html-readme:doc-to-html fh (get-readme index doc-index))))
   "DONE")
 
-;;(make-readme)
+;;(make-doc)
