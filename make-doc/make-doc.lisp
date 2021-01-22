@@ -155,9 +155,7 @@
 		       (heading (:name "Tested Lisp implementations and operating systems")
 				,(cl-html-readme:read-file "make-doc/supported.html")))
 	      (heading (:name "Generate documentation" :toc t)
-		       ,(make-code-string "make-doc/generate-doc.lisp"))
-
-	      )
+		       ,(make-code-string "make-doc/generate-doc.lisp")))
     (semantic (:name "footer")
 	      "<hr/><p><small>Generated " ,(now) "</small></p>")
     "</body></html>"))
