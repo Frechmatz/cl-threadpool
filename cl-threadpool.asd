@@ -51,9 +51,9 @@
   :author "Oliver <frechmatz@gmx.de>"
   :maintainer "Oliver <frechmatz@gmx.de>"
   :homepage "https://github.com/Frechmatz/cl-threadpool"
-  :description "Holds the documentation sources of cl-threadpool"
+  :description "Documentation sources of cl-threadpool"
   :long-description
-  "Holds the documentation sources of cl-threadpool. Documentation is created via (cl-threadpool-make-doc::make-doc)"
+  "Documentation sources of cl-threadpool. Documentation is created via (cl-threadpool-make-doc::make-doc)"
   :depends-on (:cl-threadpool :cl-html-readme :docparser)
   :components ((:module "examples"
 			:serial t
