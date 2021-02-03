@@ -97,7 +97,6 @@
 		       (heading (:name "Version 1.0.0")
 				"<p>Initial release of cl-threadpool.</p>")
 		       (heading (:name "Version 2.0.0")
-				"<p><b>This version is the current quicklisp release.</b></p>"
 				"<p>Version 2 is a major rework of the thread pool with bugfixes, new features and removal of features that have been identified as not being useful.</p>"
 				(heading (:name "Breaking changes")
 					 "<ul>"
@@ -114,6 +113,7 @@
 					 "<li>Added pool-name to get the name of a thread pool.</li>"
 					 "</ul>"))
 		       (heading (:name "Version 3.0.0")
+				"<p><b>This version is the current quicklisp release.</b></p>"
 				"<p>This version introduces futures and shall also be the last version coming with breaking changes.</p>"
 				(heading (:name "Breaking changes")
 					 "<ul>"
