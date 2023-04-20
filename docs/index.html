@@ -72,9 +72,10 @@
 <h2>Version 2.0.0</h2><p>Version 2 is a major rework of the thread pool with bugfixes, new features and removal of features that have been identified as not being useful.</p>
 <h3>Breaking changes</h3><ul><li>Removed add-job. Has been replaced with run-jobs.</li><li>Removed :resignal-job-conditions argument from make-threadpool. The pool no longer handles conditions signalled by a job.</li><li>Removed :max-queue-size argument from make-threadpool. The size of the job queue is now unlimited.</li> <li>Removed condition threadpool-error-queue-capacity-exceeded.</li><li>Removed dependency 'verbose'. The library no longer depends on a logging framework.</li></ul>
 <h3>New features</h3><ul><li>Added run-jobs for synchronous execution of jobs.</li><li>Added queue-size to get the number of jobs waiting for execution.</li><li>Added pool-name to get the name of a thread pool.</li></ul>
-<h2>Version 3.0.0</h2><p><b>This version is the current quicklisp release.</b></p><p>This version introduces futures and shall also be the last version coming with breaking changes.</p>
+<h2>Version 3.0.0</h2><p>This version introduces futures and shall also be the last version coming with breaking changes.</p>
 <h3>Breaking changes</h3><ul><li>Removed cl-threadpool:start. A threadpool is now ready to use immediately after its instantiation.</li><li>Removed condition threadpool-error. Pool usage errors and internal errors are now	represented by simple-error.</li><li>cl-threadpool:stop no longer returns an indicator if the pool has successfully been stopped. The status can be checked via cl-threadpool:pool-stopped-p.</li><li>Error handling of jobs has been reworked. The threadpool now catches all unhandled conditions of jobs. If a job has signalled a condition and its result is requested, a job-execution-error is signalled by the threadpool.</li></ul>
 <h3>New features</h3><ul><li>Added add-job Adds a job to the queue and returns a future. The future represents the result of the asynchronously running job.</li><li>Added job-result, cancel-job, job-done-p, job-cancelled-p.</li><li>Added conditions job-execution-error and job-cancellation-error.</li><li>Added pool-stopped-p.</li></ul>
+<h2>Version 3.0.1</h2><p><b>This version is the current quicklisp release.</b></p><p>Adapted to change in verbose library.</p>
 <h1 id="Installation">Installation</h1><p>Installation via Quicklisp</p>
 <pre><code>(ql:quickload "cl-threadpool")</code></pre>
 <h1 id="API">API</h1><b>make-threadpool</b>&nbsp;(size &key (name nil))<p>Instantiates a thread pool. The function has the following arguments:
@@ -127,4 +128,4 @@
 </ul>
 <h1 id="Generate documentation">Generate documentation</h1><p><pre><code>(asdf:load-system :cl-threadpool/doc)
 (cl-threadpool-make-doc::make-doc)</code></pre></p></section>
-<footer><hr/><p><small>Generated 2021-02-03  20:50:11</small></p></footer></body></html>
+<footer><hr/><p><small>Generated 2023-04-20  18:13:55</small></p></footer></body></html>

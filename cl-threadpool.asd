@@ -1,6 +1,6 @@
 (defsystem :cl-threadpool
   :serial t
-  :version "3.0.0"
+  :version "3.0.1"
   :licence "MIT"
   :author "Oliver <frechmatz@gmx.de>"
   :maintainer "Oliver <frechmatz@gmx.de>"
@@ -22,7 +22,7 @@
   :licence "MIT"
   :author "Oliver <frechmatz@gmx.de>"
   :maintainer "Oliver <frechmatz@gmx.de>"
-  :version "3.0.0"
+  :version "3.0.1"
   :homepage "https://github.com/Frechmatz/cl-threadpool"  
   :depends-on (:lisp-unit
 	       :cl-threadpool
@@ -46,7 +46,7 @@
 
 (defsystem :cl-threadpool/doc
   :serial t
-  :version "3.0.0"
+  :version "3.0.1"
   :licence "MIT"
   :author "Oliver <frechmatz@gmx.de>"
   :maintainer "Oliver <frechmatz@gmx.de>"

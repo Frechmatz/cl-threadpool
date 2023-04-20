@@ -113,7 +113,6 @@
 					 "<li>Added pool-name to get the name of a thread pool.</li>"
 					 "</ul>"))
 		       (heading (:name "Version 3.0.0")
-				"<p><b>This version is the current quicklisp release.</b></p>"
 				"<p>This version introduces futures and shall also be the last version coming with breaking changes.</p>"
 				(heading (:name "Breaking changes")
 					 "<ul>"
@@ -128,7 +127,10 @@
 					 "<li>Added job-result, cancel-job, job-done-p, job-cancelled-p.</li>"
 					 "<li>Added conditions job-execution-error and job-cancellation-error.</li>"
 					 "<li>Added pool-stopped-p.</li>"
-					 "</ul>")))
+					 "</ul>"))
+		       (heading (:name "Version 3.0.1")
+				"<p><b>This version is the current quicklisp release.</b></p>"
+				"<p>Adapted to change in verbose library.</p>"))
 	      (heading (:name "Installation" :toc t)
 		       ,(cl-html-readme:read-file "make-doc/installation.html"))
 	      (heading (:name "API" :toc t)
