@@ -11,13 +11,13 @@
 		(let ((msg (apply #'format nil format-control format-arguments)))
 		  (cond
 		    ((eq level :info)
-		     (v:info who msg))
+		     (verbose:info who msg))
 		    ((eq level :debug)
-		     (v:debug who msg))
+		     (verbose:debug who msg))
 		    ((eq level :warn)
-		     (v:warn who msg))
+		     (verbose:warn who msg))
 		    ((eq level :error)
-		     (v:error who msg))
+		     (verbose:error who msg))
 		    ((eq level :trace)
-		     (v:trace who msg)))))))))
+		     (verbose:trace who msg)))))))))
 
