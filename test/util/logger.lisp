@@ -11,13 +11,13 @@
 		(let ((msg (apply #'format nil format-control format-arguments)))
 		  (cond
 		    ((eq level :info)
-		     (verbose:info who msg))
+		     (org.shirakumo.verbose:info who msg))
 		    ((eq level :debug)
-		     (verbose:debug who msg))
+		     (org.shirakumo.verbose:debug who msg))
 		    ((eq level :warn)
-		     (verbose:warn who msg))
+		     (org.shirakumo.verbose:warn who msg))
 		    ((eq level :error)
-		     (verbose:error who msg))
+		     (org.shirakumo.verbose:error who msg))
 		    ((eq level :trace)
-		     (verbose:trace who msg)))))))))
+		     (org.shirakumo.verbose:trace who msg)))))))))
 
