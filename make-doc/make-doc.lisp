@@ -146,7 +146,10 @@
       (heading
        (:name "Version 3.0.1")
        "<p><b>This version is the current quicklisp release.</b></p>"
-       "<p>Adapted to change in verbose library.</p>"))
+       "<p>Adapted to change in verbose library.</p>")
+      (heading
+       (:name "Version 3.0.2")
+       "<p>Fix references to logging symbols defined by system VERBOSE.</p>"))
      (heading
       (:name "Installation" :toc t)
       ,(cl-html-readme:read-file "make-doc/installation.html"))
