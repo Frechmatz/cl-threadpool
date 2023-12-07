@@ -102,6 +102,13 @@
        (:name ,(make-package-string doc-index "cl-threadpool-example-2"))
        ,(make-code-string "examples/example-2.lisp")))
      (heading
+      (:name "Installation" :toc t)
+       "The library is available via Quicklisp. "
+       "Within the REPL run <code>(ql:quickload \"cl-threadpool\")</code> "
+       "to install and "
+       "<code>(slot-value (asdf:find-system 'cl-threadpool) 'asdf:version)</code> "
+       "to get the version number of the installed release.")
+     (heading
       (:name "Change-Log" :toc t)
       (heading (:name "Version 1.0.0")
 	       "<p>Initial release of cl-threadpool.</p>")
@@ -145,14 +152,10 @@
 	"</ul>"))
       (heading
        (:name "Version 3.0.1")
-       "<p><b>This version is the current quicklisp release.</b></p>"
        "<p>Adapted to change in verbose library.</p>")
       (heading
        (:name "Version 3.0.2")
        "<p>Fix references to logging symbols defined by system VERBOSE.</p>"))
-     (heading
-      (:name "Installation" :toc t)
-      ,(cl-html-readme:read-file "make-doc/installation.html"))
      (heading
       (:name "API" :toc t)
       ,(make-function-string index "cl-threadpool" "make-threadpool")
