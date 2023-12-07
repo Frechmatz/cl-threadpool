@@ -5,8 +5,8 @@
 <h1>Table of contents</h1>
 <ul>
 <li><a href="#Examples">Examples</a></li>
-<li><a href="#Change-Log">Change-Log</a></li>
 <li><a href="#Installation">Installation</a></li>
+<li><a href="#Change-Log">Change-Log</a></li>
 <li><a href="#API">API</a></li>
 <li><a href="#Run tests">Run tests</a></li>
 <li><a href="#Generate documentation">Generate documentation</a></li></ul></nav>
@@ -67,6 +67,7 @@
       (cl-threadpool:stop threadpool))))
 
 ;; (example)</code></pre></p>
+<h1 id="Installation">Installation</h1>The library is available via Quicklisp. Within the REPL run <code>(ql:quickload "cl-threadpool")</code> to install and <code>(slot-value (asdf:find-system 'cl-threadpool) 'asdf:version)</code> to get the version number of the installed release.
 <h1 id="Change-Log">Change-Log</h1>
 <h2>Version 1.0.0</h2><p>Initial release of cl-threadpool.</p>
 <h2>Version 2.0.0</h2><p>Version 2 is a major rework of the thread pool with bugfixes, new features and removal of features that have been identified as not being useful.</p>
@@ -76,9 +77,7 @@
 <h3>Breaking changes</h3><ul><li>Removed cl-threadpool:start. A threadpool is now ready to use immediately after its instantiation.</li><li>Removed condition threadpool-error. Pool usage errors and internal errors are now	represented by simple-error.</li><li>cl-threadpool:stop no longer returns an indicator if the pool has successfully been stopped. The status can be checked via cl-threadpool:pool-stopped-p.</li><li>Error handling of jobs has been reworked. The threadpool now catches all unhandled conditions of jobs. If a job has signalled a condition and its result is requested, a job-execution-error is signalled by the threadpool.</li></ul>
 <h3>New features</h3><ul><li>Added add-job Adds a job to the queue and returns a future. The future represents the result of the asynchronously running job.</li><li>Added job-result, cancel-job, job-done-p, job-cancelled-p.</li><li>Added conditions job-execution-error and job-cancellation-error.</li><li>Added pool-stopped-p.</li></ul>
 <h2>Version 3.0.1</h2><p>Adapted to change in verbose library.</p>
-<h2>Version 3.0.2</h2><p><b>This version is the current quicklisp release.</b></p><p>Fix references to logging symbols defined by system VERBOSE.</p>
-<h1 id="Installation">Installation</h1><p>Installation via Quicklisp</p>
-<pre><code>(ql:quickload "cl-threadpool")</code></pre>
+<h2>Version 3.0.2</h2><p>Fix references to logging symbols defined by system VERBOSE.</p>
 <h1 id="API">API</h1><b>make-threadpool</b>&nbsp;(size &key (name nil))<p>Instantiates a thread pool. The function has the following arguments:
    <ul>
    <li>size Number of worker threads.</li>
@@ -132,4 +131,4 @@
 </ul>
 <h1 id="Generate documentation">Generate documentation</h1><p><pre><code>(asdf:load-system :cl-threadpool/doc)
 (cl-threadpool-make-doc::make-doc)</code></pre></p></section>
-<footer><hr/><p><small>Generated 2023-11-23  20:50:35</small></p></footer></body></html>
+<footer><hr/><p><small>Generated 2023-12-07  23:23:57</small></p></footer></body></html>
