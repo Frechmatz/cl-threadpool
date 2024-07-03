@@ -187,7 +187,11 @@
       ,(make-code-string "make-doc/generate-doc.lisp")))
     (semantic
      (:name "footer")
-     "<hr/><p><small>Generated " ,(now) "</small></p>")
+     "<hr/><p><small>Generated "
+     ,(now)
+     " (cl-html-readme "
+     ,(format nil "~a" (slot-value (asdf:find-system 'cl-html-readme) 'asdf:version))	        	  ")"
+     "</small></p>")
     "</body></html>"))
 
 ;;
